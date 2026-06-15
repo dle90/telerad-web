@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import {
+  getStaffAccount,
   activateStaffAccount,
   deactivateStaffAccount,
   resetStaffPassword,
 } from '@/api'
 import { useStaffList, useTeleradPartnerOptions } from './hooks'
 import { GENDER_OPTIONS, MODALITY_OPTIONS, labelOf } from './constants'
+import StaffDetailPanel from './components/StaffDetailPanel'
 import StaffFormPanel from './components/StaffFormPanel'
 import CreateAccountModal from './components/CreateAccountModal'
 import CredentialResultModal from './components/CredentialResultModal'
@@ -22,14 +24,35 @@ export default function StaffPage() {
   const list = useStaffList()
   const partnerOptions = useTeleradPartnerOptions()
 
-  // One piece of modal state: { type, staff }. type drives which dialog renders.
+  // Detail (read-only) and edit (form) drawers are their own state, mirroring
+  // his-web's "view detail → Sửa → Cập nhật" flow. `modal` drives the secondary
+  // dialogs (reading-permission, roles, create-account).
+  const [viewing, setViewing] = useState(null) // full fetched record for detail
+  const [editing, setEditing] = useState(null) // null=closed, {}=new, record=edit
   const [modal, setModal] = useState(null)
   const [credential, setCredential] = useState(null) // reset-password result
   const [searchInput, setSearchInput] = useState('')
 
   const closeModal = () => setModal(null)
-  const afterChange = () => {
+  const afterModal = () => {
     closeModal()
+    list.reload()
+  }
+
+  // Open the read-only detail drawer with a freshly-fetched full record (the
+  // list row lacks fields like dateOfBirth/email/address).
+  const openDetail = async (row) => {
+    try {
+      const detail = await getStaffAccount(row.uuid)
+      setViewing(detail || row)
+    } catch {
+      setViewing(row)
+    }
+  }
+
+  const afterSave = () => {
+    setEditing(null)
+    setViewing(null)
     list.reload()
   }
 
@@ -63,7 +86,7 @@ export default function StaffPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Quản lý nhân sự</h1>
         <button
-          onClick={() => setModal({ type: 'form', staff: null })}
+          onClick={() => setEditing({})}
           className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           + Thêm nhân sự
@@ -171,12 +194,12 @@ export default function StaffPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-3 text-sm">
                         <button
-                          onClick={() => setModal({ type: 'form', staff: s })}
-                          title="Sửa hồ sơ"
-                          aria-label="Sửa hồ sơ"
+                          onClick={() => openDetail(s)}
+                          title="Xem chi tiết"
+                          aria-label="Xem chi tiết"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          ✏️
+                          👁️
                         </button>
                         <button
                           onClick={() => setModal({ type: 'reading-permission', staff: s })}
@@ -234,10 +257,32 @@ export default function StaffPage() {
         <Pagination list={list} />
       </div>
 
-      {/* Modals */}
-      {modal?.type === 'form' && (
-        <StaffFormPanel staff={modal.staff} onClose={closeModal} onSaved={afterChange} />
+      {/* Detail (read-only) drawer → Sửa switches to the edit form drawer. */}
+      {viewing && (
+        <StaffDetailPanel
+          staff={viewing}
+          partnerOptions={partnerOptions}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing)
+            setViewing(null)
+          }}
+        />
       )}
+
+      {/* Create / edit form drawer. Cancelling an edit returns to its detail. */}
+      {editing && (
+        <StaffFormPanel
+          staff={editing}
+          onClose={() => {
+            if (editing.uuid) setViewing(editing)
+            setEditing(null)
+          }}
+          onSaved={afterSave}
+        />
+      )}
+
+      {/* Secondary modals */}
       {modal?.type === 'create-account' && (
         <CreateAccountModal staff={modal.staff} onClose={closeModal} onDone={list.reload} />
       )}
@@ -246,11 +291,11 @@ export default function StaffPage() {
           staff={modal.staff}
           partnerOptions={partnerOptions}
           onClose={closeModal}
-          onSaved={afterChange}
+          onSaved={afterModal}
         />
       )}
       {modal?.type === 'roles' && (
-        <RolesModal staff={modal.staff} onClose={closeModal} onSaved={afterChange} />
+        <RolesModal staff={modal.staff} onClose={closeModal} onSaved={afterModal} />
       )}
       {credential && (
         <CredentialResultModal

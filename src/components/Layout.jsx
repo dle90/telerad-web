@@ -7,6 +7,7 @@ import ChangeOwnPasswordModal from './ChangeOwnPasswordModal'
 // Navigation entries for the admin console. Keep labels in Vietnamese, no
 // abbreviations (global rule).
 const NAV_ITEMS = [
+  { to: '/reading', label: 'Ca đọc', icon: '🩻' },
   { to: '/staff', label: 'Quản lý nhân sự', icon: '👤' },
   { to: '/partners', label: 'Đối tác tích hợp', icon: '🤝' },
 ]
@@ -15,6 +16,7 @@ export default function Layout({ children }) {
   const { auth, logout, updateUser } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   // Pull the current user's profile once after mount so the topbar can show a
@@ -37,10 +39,14 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-60 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+      {/* Sidebar — collapses to width 0 via the header's "Ẩn menu" toggle. */}
+      <aside
+        className={`${
+          sidebarOpen ? 'w-60' : 'w-0'
+        } shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden transition-all duration-200`}
+      >
         <div className="px-5 py-5 border-b border-gray-100">
-          <div className="text-xl font-bold text-blue-900 tracking-wide">Telerad</div>
+          <div className="text-xl font-bold text-blue-900 tracking-wide">Medisync Telerad</div>
           <div className="text-xs text-gray-400 mt-0.5">Trang quản trị</div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -63,7 +69,34 @@ export default function Layout({ children }) {
 
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 shrink-0 bg-white border-b border-gray-200 flex items-center justify-end px-6">
+        <header className="h-14 shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+          {/* Left: collapse toggle + app title */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+              title={sidebarOpen ? 'Ẩn menu' : 'Hiện menu'}
+              aria-label={sidebarOpen ? 'Ẩn menu' : 'Hiện menu'}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-semibold text-gray-800">Medisync Telerad</h1>
+          </div>
+
+          {/* Right: user menu */}
           <div className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}

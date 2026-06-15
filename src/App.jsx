@@ -6,6 +6,7 @@ import ApiErrorToast from './components/ApiErrorToast'
 import Login from './pages/Login'
 import StaffPage from './features/staff/StaffPage'
 import PartnerPage from './features/partner/PartnerPage'
+import ReadingPage from './features/reading/ReadingPage'
 
 function AuthenticatedRoutes() {
   const { auth } = useAuth()
@@ -15,10 +16,11 @@ function AuthenticatedRoutes() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/staff" replace />} />
+        <Route path="/" element={<Navigate to="/reading" replace />} />
+        <Route path="/reading" element={<ReadingPage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/partners" element={<PartnerPage />} />
-        <Route path="*" element={<Navigate to="/staff" replace />} />
+        <Route path="*" element={<Navigate to="/reading" replace />} />
       </Routes>
     </Layout>
   )

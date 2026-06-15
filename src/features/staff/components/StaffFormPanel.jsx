@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import SidePanel from '@/components/SidePanel'
 import FieldRow from '@/components/FieldRow'
+import DateField from '@/components/DateField'
 import { createStaffAccount, updateStaffAccount } from '@/api'
 import { inputCls } from '@/lib/ui'
 import { ddmmyyyyToISO, isoToDDMMYYYY } from '@/lib/format'
@@ -10,7 +11,7 @@ import { GENDER_OPTIONS, ROLE_OPTIONS } from '../constants'
 // permission and roles are managed via separate modals — except `roles`, which
 // telerad-core accepts at creation time, so we collect it only when creating.
 export default function StaffFormPanel({ staff, onClose, onSaved }) {
-  const isEdit = !!staff
+  const isEdit = !!staff?.uuid
   const [form, setForm] = useState(() => ({
     code: staff?.code || '',
     fullName: staff?.fullName || '',
@@ -106,7 +107,7 @@ export default function StaffFormPanel({ staff, onClose, onSaved }) {
           </select>
         </FieldRow>
         <FieldRow label="Ngày sinh">
-          <input type="date" value={form.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} className={inputCls} disabled={saving} />
+          <DateField value={form.dateOfBirth} onChange={(v) => set('dateOfBirth', v)} disabled={saving} />
         </FieldRow>
         <FieldRow label="Số căn cước công dân">
           <input value={form.citizenIdentityNumber} onChange={(e) => set('citizenIdentityNumber', e.target.value)} className={`${inputCls} font-mono`} disabled={saving} />
