@@ -1,0 +1,5 @@
+# pnpm 11+ requires explicitly allow-listing packages whose install/build
+# scripts may run. Vite's bundler (esbuild) ships a postinstall that fetches its
+# native binary — without this it's blocked and `pnpm build`/`dev` fail.
+allowBuilds:
+  esbuild: true

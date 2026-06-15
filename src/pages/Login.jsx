@@ -1,0 +1,81 @@
+import React, { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { loginUser, getMe } from '../api'
+
+export default function Login() {
+  const { login, updateUser } = useAuth()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const data = await loginUser(username, password)
+      // Persist auth first so the getMe call below carries the bearer token.
+      login({ ...data, user: { username } })
+      // Best-effort profile fetch so the topbar shows the real name; failure is
+      // non-fatal (topbar falls back to the username).
+      try {
+        const me = await getMe()
+        if (me) updateUser(me)
+      } catch {}
+    } catch (err) {
+      setError(err.response?.data?.error || 'Đăng nhập thất bại')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-8">
+        <div className="text-center mb-8">
+          <div className="text-3xl font-bold text-blue-900 tracking-wide">Telerad</div>
+          <div className="text-gray-500 text-sm mt-1">Trang quản trị</div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Tên đăng nhập</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Mật khẩu</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
