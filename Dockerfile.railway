@@ -1,0 +1,51 @@
+# Railway deployment build for telerad-web (React + Vite SPA, pnpm).
+#
+# Multi-stage: build the static bundle with Node/pnpm, then serve it with nginx.
+# The SPA calls telerad-core CROSS-ORIGIN at window.__TELERAD_CORE_URL__, which
+# is rendered into /config.js from $TELERAD_CORE_URL at container start — so one
+# image serves every env by changing the Railway variable (no rebuild).
+
+# ---- build stage ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# pnpm 11+ — the repo's pnpm-workspace.yaml uses `allowBuilds` (a pnpm 11+
+# field) to let esbuild's postinstall fetch its native binary; older pnpm would
+# ignore it and `pnpm build` would fail. Install via npm to avoid pinning an
+# exact corepack hash.
+RUN npm install -g pnpm@11
+
+# Cache dependency install. pnpm-workspace.yaml is required at install time
+# (carries the esbuild allowBuilds entry).
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Build the static bundle into /app/dist
+COPY . .
+RUN pnpm run build
+
+# ---- runtime stage ----
+FROM nginx:1.27-alpine
+
+# Substituted into nginx.conf.template by envsubst (the nginx image entrypoint)
+# at container start. PORT is provided by Railway; 8080 is only a local fallback.
+ENV PORT=8080
+# Public base URL of telerad-core (INCLUDING the /services segment), e.g.
+#   https://telerad-core-production-xxxx.up.railway.app/services
+# Rendered into /config.js at container start (window.__TELERAD_CORE_URL__) so
+# the SPA calls telerad-core CROSS-ORIGIN. telerad-core must allow this origin +
+# the Authorization header via its CORS_* env vars.
+ENV TELERAD_CORE_URL=http://localhost:8101/services
+# Only PORT is substituted into the nginx config (config.js is rendered
+# separately by the entrypoint script below).
+ENV NGINX_ENVSUBST_FILTER=^(PORT)$
+
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+# Runtime config.js: rendered from $TELERAD_CORE_URL before nginx starts.
+COPY config.js.template /etc/telerad-web/config.js.template
+COPY docker-entrypoint.d/40-telerad-web-config.sh /docker-entrypoint.d/40-telerad-web-config.sh
+RUN chmod +x /docker-entrypoint.d/40-telerad-web-config.sh
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 8080

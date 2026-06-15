@@ -1,0 +1,51 @@
+# telerad-web production server (Railway).
+#
+# Rendered at container start: the nginx image runs envsubst over
+# /etc/nginx/templates/*.template, substituting ${PORT} from the Railway service
+# variables. ($TELERAD_CORE_URL is rendered separately into /config.js by
+# docker-entrypoint.d/40-telerad-web-config.sh.)
+
+server {
+    listen ${PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # SPA serves only static assets (the API is cross-origin to telerad-core),
+    # so a small body limit is plenty.
+    client_max_body_size 5m;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json
+               image/svg+xml application/wasm;
+
+    # NO API proxy — cross-origin model: the SPA calls telerad-core directly at
+    # window.__TELERAD_CORE_URL__ (see /config.js). telerad-web only serves
+    # static assets here.
+
+    # Runtime config — rendered per-env at container start; never cache it.
+    location = /config.js {
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # index.html must never be cached — a stale copy would reference old asset
+    # hashes after a deploy.
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Hashed build assets — content-addressed, safe to cache forever.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # SPA fallback — client-side routing serves index.html for any route.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

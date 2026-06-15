@@ -1,0 +1,4 @@
+# Shell scripts must stay LF — they run in Linux containers. A CRLF shebang
+# breaks `#!/bin/sh` and CRLF in the body corrupts envsubst output.
+*.sh text eol=lf
+docker-entrypoint.d/* text eol=lf
