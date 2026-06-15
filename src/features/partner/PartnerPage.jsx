@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { activateTeleradPartner, deactivateTeleradPartner } from '@/api'
+import { getTeleradPartner, activateTeleradPartner, deactivateTeleradPartner } from '@/api'
 import { usePartnerList } from './hooks'
 import { MODALITY_OPTIONS, labelOf } from './constants'
+import PartnerDetailPanel from './components/PartnerDetailPanel'
 import PartnerFormPanel from './components/PartnerFormPanel'
 import PartnerConfigModal from './components/PartnerConfigModal'
 import ChangePasswordModal from './components/ChangePasswordModal'
@@ -14,12 +15,32 @@ const STATUS_FILTERS = [
 
 export default function PartnerPage() {
   const list = usePartnerList()
+  // Detail (read-only) and edit (form) drawers mirror his-web's "view detail →
+  // Sửa → Cập nhật" flow. `modal` drives the secondary dialogs (config, password).
+  const [viewing, setViewing] = useState(null) // full fetched record for detail
+  const [editing, setEditing] = useState(null) // null=closed, {}=new, record=edit
   const [modal, setModal] = useState(null) // { type, partner }
   const [searchInput, setSearchInput] = useState('')
 
   const closeModal = () => setModal(null)
-  const afterChange = () => {
+  const afterModal = () => {
     closeModal()
+    list.reload()
+  }
+
+  // Open the read-only detail drawer with a freshly-fetched full record.
+  const openDetail = async (row) => {
+    try {
+      const detail = await getTeleradPartner(row.uuid)
+      setViewing(detail || row)
+    } catch {
+      setViewing(row)
+    }
+  }
+
+  const afterSave = () => {
+    setEditing(null)
+    setViewing(null)
     list.reload()
   }
 
@@ -44,7 +65,7 @@ export default function PartnerPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Đối tác tích hợp</h1>
         <button
-          onClick={() => setModal({ type: 'form', partner: null })}
+          onClick={() => setEditing({})}
           className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           + Thêm đối tác
@@ -89,12 +110,12 @@ export default function PartnerPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Mã', 'Tên đối tác', 'Tài khoản', 'Liên hệ', 'Loại chụp', 'Callback', 'Trạng thái', 'Thao tác'].map(
+                {['Mã', 'Tên đối tác', 'Tài khoản', 'Loại chụp', 'Callback', 'Trạng thái', 'Thao tác'].map(
                   (h, i) => (
                     <th
                       key={i}
                       className={`px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap ${
-                        h === 'Thao tác' ? 'text-center' : 'text-left'
+                        h === 'Thao tác' || h === 'Callback' ? 'text-center' : 'text-left'
                       }`}
                     >
                       {h}
@@ -106,13 +127,13 @@ export default function PartnerPage() {
             <tbody className="divide-y divide-gray-100">
               {list.loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                     Đang tải…
                   </td>
                 </tr>
               ) : list.items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                     Không có dữ liệu
                   </td>
                 </tr>
@@ -122,13 +143,12 @@ export default function PartnerPage() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{p.code}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-700 whitespace-nowrap">{p.username}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.contact || '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">
                       {(p.modalities || []).length
                         ? p.modalities.map((m) => labelOf(MODALITY_OPTIONS, m)).join(', ')
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
                       {p.callback ? (
                         <span className="inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">
                           Bật
@@ -151,12 +171,12 @@ export default function PartnerPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-3 text-sm">
                         <button
-                          onClick={() => setModal({ type: 'form', partner: p })}
-                          title="Sửa thông tin"
-                          aria-label="Sửa thông tin"
+                          onClick={() => openDetail(p)}
+                          title="Xem chi tiết"
+                          aria-label="Xem chi tiết"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          ✏️
+                          👁️
                         </button>
                         <button
                           onClick={() => setModal({ type: 'config', partner: p })}
@@ -194,15 +214,36 @@ export default function PartnerPage() {
         <Pagination list={list} />
       </div>
 
-      {/* Modals */}
-      {modal?.type === 'form' && (
-        <PartnerFormPanel partner={modal.partner} onClose={closeModal} onSaved={afterChange} />
+      {/* Detail (read-only) drawer → Sửa switches to the edit form drawer. */}
+      {viewing && (
+        <PartnerDetailPanel
+          partner={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing)
+            setViewing(null)
+          }}
+        />
       )}
+
+      {/* Create / edit form drawer. Cancelling an edit returns to its detail. */}
+      {editing && (
+        <PartnerFormPanel
+          partner={editing}
+          onClose={() => {
+            if (editing.uuid) setViewing(editing)
+            setEditing(null)
+          }}
+          onSaved={afterSave}
+        />
+      )}
+
+      {/* Secondary modals */}
       {modal?.type === 'config' && (
-        <PartnerConfigModal partner={modal.partner} onClose={closeModal} onSaved={afterChange} />
+        <PartnerConfigModal partner={modal.partner} onClose={closeModal} onSaved={afterModal} />
       )}
       {modal?.type === 'change-password' && (
-        <ChangePasswordModal partner={modal.partner} onClose={closeModal} onSaved={afterChange} />
+        <ChangePasswordModal partner={modal.partner} onClose={closeModal} onSaved={afterModal} />
       )}
     </div>
   )

@@ -12,7 +12,7 @@ import { MODALITY_OPTIONS } from '../constants'
 //   - Edit: general info only (code/name/contact/modalities). Credential and
 //     callback config have their own modals.
 export default function PartnerFormPanel({ partner, onClose, onSaved }) {
-  const isEdit = !!partner
+  const isEdit = !!partner?.uuid
   const [form, setForm] = useState(() => ({
     code: partner?.code || '',
     name: partner?.name || '',
