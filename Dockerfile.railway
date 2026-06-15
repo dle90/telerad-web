@@ -6,7 +6,9 @@
 # image serves every env by changing the Railway variable (no rebuild).
 
 # ---- build stage ----
-FROM node:20-alpine AS builder
+# Node 22+ is required: pnpm 11 imports the node:sqlite builtin (added in Node
+# 22.13), so node:20 crashes with ERR_UNKNOWN_BUILTIN_MODULE during install.
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # pnpm 11+ — the repo's pnpm-workspace.yaml uses `allowBuilds` (a pnpm 11+
