@@ -10,5 +10,4 @@ export const ROLE_OPTIONS = [{ value: 'DOCTOR', label: 'Bác sĩ' }]
 export const GENDER_OPTIONS = [
   { value: 'MALE', label: 'Nam' },
   { value: 'FEMALE', label: 'Nữ' },
-  { value: 'OTHER', label: 'Khác' },
 ]

@@ -1,16 +1,14 @@
 import React from 'react'
 
 // Right-side slide-over drawer used for create/edit forms (mirrors his-web's
-// Equipment form drawer). Clicking the backdrop closes it unless `busy`.
-// `footer` renders in a sticky action bar at the bottom.
-export default function SidePanel({ title, subtitle, onClose, busy = false, size = 'md', children, footer }) {
+// Equipment form drawer). KHÔNG đóng khi click nền (backdrop) — chỉ đóng qua nút
+// ×/Hủy/Đóng — để tránh mất dữ liệu form do lỡ tay. `footer` renders in a sticky
+// action bar at the bottom.
+export default function SidePanel({ title, subtitle, onClose, size = 'md', children, footer }) {
   const maxW = size === 'lg' ? 'max-w-xl' : 'max-w-md'
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={() => !busy && onClose()}>
-      <div
-        className={`w-full ${maxW} bg-white h-full flex flex-col shadow-2xl`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/30">
+      <div className={`w-full ${maxW} bg-white h-full flex flex-col shadow-2xl`}>
         <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between">
           <div>
             <div className="text-base font-semibold text-gray-900">{title}</div>

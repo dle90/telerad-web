@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getReadingPartners, getReadingOrders } from '@/api'
+import { getReadingPartners, getReadingOrders, getReadingOrderDetail } from '@/api'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -18,6 +18,28 @@ export function useReadingPartners() {
   return { groups, loading }
 }
 
+// Chi tiết 1 ca đọc cho tab chi tiết. Nạp 1 lần theo uuid; tự nạp lại nếu uuid đổi.
+export function useReadingOrderDetail(uuid) {
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!uuid) return
+    let alive = true
+    setLoading(true)
+    getReadingOrderDetail(uuid)
+      .then((d) => alive && setDetail(d || null))
+      .catch(() => alive && setDetail(null))
+      .finally(() => alive && setLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [uuid])
+
+  // setDetail để bind lại data sau khi nhận ca / hủy khóa (API trả chi tiết mới).
+  return { detail, loading, setDetail }
+}
+
 // Danh sách ca đọc + bộ lọc. `filters` gom mọi tiêu chí (lựa chọn cây trái +
 // ngày chụp + text); đổi filters reset về trang 1 và nạp lại.
 export function useReadingOrders() {
@@ -31,6 +53,8 @@ export function useReadingOrders() {
     patientName: '',
     patientCode: '',
     phone: '',
+    status: '', // '' = tất cả; UNREAD/READING/PENDING_APPROVAL/APPROVED
+    resultReturned: '', // '' = tất cả; 'true' = đã trả; 'false' = chưa trả
   })
   const [items, setItems] = useState([])
   const [recordCount, setRecordCount] = useState(0)
@@ -55,6 +79,8 @@ export function useReadingOrders() {
         patientName: filters.patientName,
         patientCode: filters.patientCode,
         phone: filters.phone,
+        status: filters.status,
+        resultReturned: filters.resultReturned,
       })
       setItems(res?.records || [])
       setRecordCount(Number(res?.recordCount || 0))
