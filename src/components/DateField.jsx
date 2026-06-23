@@ -1,6 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ddmmyyyyToISO, isoToDDMMYYYY } from '@/lib/format'
 
+// Tự chèn "/" khi gõ ngày: "010" -> "01/0", "01012026" -> "01/01/2026".
+// KHÔNG chặn dấu "/" do user gõ — tôn trọng nó làm dấu phân tách nên vẫn nhập
+// được 1 chữ số ("1/2/2026"). Mỗi phân đoạn tối đa [2,2,4]; tràn thì đẩy sang
+// phân đoạn sau (tự thêm "/").
+function maskDateInput(raw) {
+  const segsRaw = String(raw)
+    .replace(/[^\d/]/g, '')
+    .replace(/\/{2,}/g, '/')
+    .split('/')
+  const maxLen = [2, 2, 4]
+  const segs = []
+  let i = 0
+  for (let k = 0; k < segsRaw.length && i < 3; k++) {
+    let seg = segsRaw[k]
+    while (seg.length > maxLen[i] && i < 2) {
+      segs.push(seg.slice(0, maxLen[i]))
+      seg = seg.slice(maxLen[i])
+      i++
+    }
+    segs.push(seg.slice(0, maxLen[i]))
+    i++
+  }
+  return segs.join('/')
+}
+
 // Ô ngày: HIỂN THỊ/NHẬP TAY theo DD/MM/YYYY, nhưng `value`/`onChange` luôn ở dạng
 // ISO (YYYY-MM-DD) để callsite build query thẳng. Kèm nút 📅 mở lịch native.
 // Nhập tay được commit khi blur/Enter; chuỗi sai → revert về value hiện tại.
@@ -56,7 +81,7 @@ export default function DateField({ value, onChange, disabled = false }) {
         value={text}
         placeholder="dd/mm/yyyy"
         disabled={disabled}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => setText(maskDateInput(e.target.value))}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {

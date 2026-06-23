@@ -1,25 +1,95 @@
 import React, { useState } from 'react'
-import { generateReadingOrderViewerUrl } from '@/api'
 import { formatDateTime } from '@/lib/timezone'
 import DateField from '@/components/DateField'
 import { useReadingPartners, useReadingOrders } from './hooks'
-import { statusMeta } from './constants'
+import { statusMeta, READING_STATUS_OPTIONS, RESULT_RETURNED_OPTIONS } from './constants'
+import CaseDetailTab from './CaseDetailTab'
 
-// Màn "Ca đọc": cây đối tác (nhóm theo loại chụp) bên trái + danh sách ca đọc bên
-// phải. Chọn 1 đối tác hoặc 1 nhóm loại chụp ở cây để lọc; bộ lọc trên cùng lọc
-// theo ngày chụp / tên / mã bệnh nhân / SĐT.
+// Màn "Ca đọc": chia tab giống phần mềm cũ. Tab "Danh sách ca" (worklist) luôn mở;
+// nhấp đúp 1 ca → mở tab chi tiết ca ngay trong màn (không phải tab trình duyệt).
 export default function ReadingPage() {
   const { groups, loading: treeLoading } = useReadingPartners()
   const list = useReadingOrders()
 
+  // Tab chi tiết đang mở: [{ uuid, label }]. active = 'list' hoặc uuid 1 tab chi tiết.
+  const [tabs, setTabs] = useState([])
+  const [active, setActive] = useState('list')
+
+  const openDetail = (row) => {
+    setTabs((prev) => (prev.some((t) => t.uuid === row.uuid) ? prev : [...prev, { uuid: row.uuid, label: row.fullName }]))
+    setActive(row.uuid)
+  }
+  const closeDetail = (uuid) => {
+    setTabs((prev) => prev.filter((t) => t.uuid !== uuid))
+    setActive((cur) => (cur === uuid ? 'list' : cur))
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <TabBar tabs={tabs} active={active} setActive={setActive} closeDetail={closeDetail} />
+
+      <div className="flex-1 min-h-0 mt-3">
+        {/* Tab danh sách: luôn mount, chỉ ẩn khi không active để giữ bộ lọc + vị trí cuộn. */}
+        <div className={`h-full ${active === 'list' ? '' : 'hidden'}`}>
+          <CaseListTab groups={groups} treeLoading={treeLoading} list={list} openDetail={openDetail} />
+        </div>
+        {/* Mỗi tab chi tiết giữ nguyên trạng thái khi chuyển qua lại. */}
+        {tabs.map((t) => (
+          <div key={t.uuid} className={`h-full ${active === t.uuid ? '' : 'hidden'}`}>
+            <CaseDetailTab uuid={t.uuid} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Thanh tab ────────────────────────────────────────────────────────────────
+
+function TabBar({ tabs, active, setActive, closeDetail }) {
+  return (
+    <div className="flex items-stretch gap-1 border-b border-gray-200 overflow-x-auto">
+      <button
+        onClick={() => setActive('list')}
+        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+          active === 'list' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        Danh sách ca
+      </button>
+      {tabs.map((t) => (
+        <div
+          key={t.uuid}
+          className={`flex items-center gap-2 pl-4 pr-2 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+            active === t.uuid ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <button onClick={() => setActive(t.uuid)} className="max-w-[14rem] truncate">
+            {t.label}
+          </button>
+          <button
+            onClick={() => closeDetail(t.uuid)}
+            className="text-gray-400 hover:text-red-600 rounded px-1"
+            title="Đóng tab"
+            aria-label="Đóng tab"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Tab danh sách ca (worklist) ──────────────────────────────────────────────
+
+function CaseListTab({ groups, treeLoading, list, openDetail }) {
   return (
     <div className="flex gap-4 h-full">
       <PartnerTree groups={groups} loading={treeLoading} filters={list.filters} setFilters={list.setFilters} />
-
       <div className="flex-1 min-w-0 space-y-4">
-        <h1 className="text-xl font-semibold text-gray-900">Ca đọc</h1>
         <FilterBar list={list} />
-        <WorklistTable list={list} />
+        <WorklistTable list={list} openDetail={openDetail} />
       </div>
     </div>
   )
@@ -113,6 +183,8 @@ function FilterBar({ list }) {
     patientName: list.filters.patientName,
     patientCode: list.filters.patientCode,
     phone: list.filters.phone,
+    status: list.filters.status,
+    resultReturned: list.filters.resultReturned,
   })
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
 
@@ -124,6 +196,8 @@ function FilterBar({ list }) {
       patientName: draft.patientName.trim(),
       patientCode: draft.patientCode.trim(),
       phone: draft.phone.trim(),
+      status: draft.status,
+      resultReturned: draft.resultReturned,
     })
   }
 
@@ -137,6 +211,30 @@ function FilterBar({ list }) {
       </Field>
       <Field label="Đến ngày chụp">
         <DateField value={draft.dateTo} onChange={(v) => set('dateTo', v)} />
+      </Field>
+      <Field label="Tình trạng ca">
+        <select value={draft.status} onChange={(e) => set('status', e.target.value)} className={`${inputCls} w-44`}>
+          <option value="">Tất cả</option>
+          {READING_STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Trả kết quả">
+        <select
+          value={draft.resultReturned}
+          onChange={(e) => set('resultReturned', e.target.value)}
+          className={`${inputCls} w-32`}
+        >
+          <option value="">Tất cả</option>
+          {RESULT_RETURNED_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label="Tên bệnh nhân">
         <input value={draft.patientName} onChange={(e) => set('patientName', e.target.value)} className={`${inputCls} w-48`} />
@@ -178,25 +276,7 @@ const HEADERS = [
   'Trạng thái',
 ]
 
-function WorklistTable({ list }) {
-  // Nhấp đúp 1 ca → sinh URL viewer rồi mở tab mới đọc ảnh. Mở tab trắng NGAY trong
-  // cử chỉ (tránh popup blocker), điều hướng sau khi có URL.
-  const openViewer = async (readingOrderUuid) => {
-    const win = window.open('', '_blank')
-    try {
-      const url = await generateReadingOrderViewerUrl(readingOrderUuid)
-      if (win) {
-        win.opener = null
-        win.location = url
-      } else {
-        window.open(url, '_blank')
-      }
-    } catch {
-      // apiFetch đã toast lỗi; đóng tab trắng đã mở.
-      if (win) win.close()
-    }
-  }
-
+function WorklistTable({ list, openDetail }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -232,8 +312,8 @@ function WorklistTable({ list }) {
                 return (
                   <tr
                     key={r.uuid}
-                    onDoubleClick={() => openViewer(r.uuid)}
-                    title="Nhấp đúp để mở PACS viewer đọc ca"
+                    onDoubleClick={() => openDetail(r)}
+                    title="Nhấp đúp để mở chi tiết ca"
                     className="hover:bg-blue-50/40 cursor-pointer select-none"
                   >
                     <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">

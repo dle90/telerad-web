@@ -5,6 +5,25 @@ import { apiFetch } from '../client'
 export const getReadingPartners = () =>
   apiFetch('/telerad-core/v1/staff/telerad-partner/actions/get-partners-for-reading')
 
+// Chi tiết 1 ca đọc (tab chi tiết màn "Ca đọc").
+export const getReadingOrderDetail = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}`)
+
+// Nhận ca (UNREAD -> READING). Trả về chi tiết ca sau khi nhận.
+export const receiveReadingOrder = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/receive`, { method: 'POST' })
+
+// Hủy khóa (READING của mình -> UNREAD). Trả về chi tiết ca sau khi hủy.
+export const cancelReadingOrderLock = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/cancel-lock`, { method: 'POST' })
+
+// Lưu kết quả đọc (result_in_html). Trả về chi tiết ca sau khi lưu.
+export const saveReadingOrderResult = (readingOrderUuid, resultInHtml) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/save-result`, {
+    method: 'POST',
+    body: { resultInHtml },
+  })
+
 // Sinh URL mở PACS viewer cho 1 ca đọc (kèm view-token trong URL hash). Trả về
 // chuỗi URL để mở tab mới đọc ảnh DICOM.
 export const generateReadingOrderViewerUrl = (readingOrderUuid) =>
@@ -21,6 +40,8 @@ export const getReadingOrders = ({
   patientName = '',
   patientCode = '',
   phone = '',
+  status = '',
+  resultReturned = '',
 } = {}) => {
   const qs = new URLSearchParams()
   qs.set('page', String(page))
@@ -32,5 +53,7 @@ export const getReadingOrders = ({
   if (patientName) qs.set('patientName', patientName)
   if (patientCode) qs.set('patientCode', patientCode)
   if (phone) qs.set('phone', phone)
+  if (status) qs.set('status', status)
+  if (resultReturned === 'true' || resultReturned === 'false') qs.set('resultReturned', resultReturned)
   return apiFetch(`/telerad-core/v1/staff/reading-order?${qs.toString()}`)
 }

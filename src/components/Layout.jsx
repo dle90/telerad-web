@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMe } from '../api'
 import ChangeOwnPasswordModal from './ChangeOwnPasswordModal'
@@ -10,11 +10,17 @@ const NAV_ITEMS = [
   { to: '/reading', label: 'Ca đọc', icon: '🩻' },
   { to: '/staff', label: 'Quản lý nhân sự', icon: '👤' },
   { to: '/partners', label: 'Đối tác tích hợp', icon: '🤝' },
+  { to: '/result-templates', label: 'Cấu hình mẫu kết quả', icon: '📝' },
+  { to: '/result-sheet-templates', label: 'Cấu hình phiếu kết quả', icon: '📄' },
 ]
+
+// Tiêu đề tab trình duyệt: "Telerad - <Tên chức năng đang bật>".
+const APP_TITLE = 'Telerad'
 
 export default function Layout({ children }) {
   const { auth, logout, updateUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -29,6 +35,14 @@ export default function Layout({ children }) {
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Cập nhật tiêu đề tab theo chức năng đang mở (khớp path dài nhất với NAV_ITEMS).
+  useEffect(() => {
+    const active = [...NAV_ITEMS]
+      .filter((item) => location.pathname.startsWith(item.to))
+      .sort((a, b) => b.to.length - a.to.length)[0]
+    document.title = active ? `${APP_TITLE} - ${active.label}` : APP_TITLE
+  }, [location.pathname])
 
   const displayName = auth?.user?.fullName || auth?.user?.username || 'Tài khoản'
 

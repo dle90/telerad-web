@@ -1,9 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { loginUser, getMe } from '../api'
 
 export default function Login() {
   const { login, updateUser } = useAuth()
+
+  // Trang đăng nhập (ngoài Layout) -> tiêu đề tab về mặc định "Telerad".
+  useEffect(() => {
+    document.title = 'Telerad'
+  }, [])
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
