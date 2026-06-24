@@ -4,17 +4,21 @@ import {
   receiveReadingOrder,
   cancelReadingOrderLock,
   saveReadingOrderResult,
+  approveReadingOrder,
   getImagingResultTemplate,
 } from '@/api'
 import { formatDateTime } from '@/lib/timezone'
-import { notifySuccess } from '@/lib/toast'
+import { notifySuccess, notifyError } from '@/lib/toast'
+import { confirmDialog } from '@/lib/confirm'
 import { statusMeta } from './constants'
 import { useReadingOrderDetail } from './hooks'
 import TemplatePickerModal from './TemplatePickerModal'
+import PrintResultModal from './PrintResultModal'
 
 // Thanh công cụ tĩnh (luôn hiện). "Xem ảnh" có logic; các nút còn lại gắn sau.
 const TOOLBAR = [
   { key: 'viewImage', label: 'Xem ảnh', icon: '👁️' },
+  { key: 'print', label: 'In kết quả', icon: '🖨️' },
   { key: 'video', label: 'Xem - Tải Video', icon: '🎞️' },
   { key: 'attachment', label: 'Tải tệp đính kèm', icon: '📎' },
   { key: 'portal', label: 'In Tra cứu Portal', icon: '🖨️' },
@@ -39,6 +43,7 @@ export default function CaseDetailTab({ uuid }) {
   const { detail, loading, setDetail } = useReadingOrderDetail(uuid)
   const [busy, setBusy] = useState(false)
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
   const resultRef = useRef(null) // vùng "Nhập kết quả" (contentEditable)
   const initedRef = useRef(false) // đã khởi tạo editor cho ca này chưa (nạp 1 lần)
 
@@ -74,6 +79,7 @@ export default function CaseDetailTab({ uuid }) {
 
   const onToolbar = (key) => {
     if (key === 'viewImage') openViewer()
+    else if (key === 'print') setPrintOpen(true)
     // các nút khác: chưa gắn logic
   }
 
@@ -105,9 +111,16 @@ export default function CaseDetailTab({ uuid }) {
     }
   }
 
-  // Lưu kết quả: ghi nội dung editor (html) vào result_in_html.
+  // Có nội dung thật trong editor chưa (bỏ qua thẻ rỗng) — dùng để chặn lưu rỗng.
+  const editorHasContent = () => !!(resultRef.current && resultRef.current.textContent && resultRef.current.textContent.trim())
+
+  // Lưu kết quả: ghi nội dung editor (html) vào result_in_html. BẮT BUỘC có nội dung.
   const doSaveResult = async () => {
     if (busy) return
+    if (!editorHasContent()) {
+      notifyError('Chưa có nội dung kết quả để lưu')
+      return
+    }
     setBusy(true)
     try {
       const html = resultRef.current ? resultRef.current.innerHTML : ''
@@ -115,6 +128,42 @@ export default function CaseDetailTab({ uuid }) {
       if (updated) {
         setDetail(updated)
         notifySuccess('Lưu kết quả thành công')
+      }
+    } catch {
+      // toast lỗi đã hiển thị
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Kết thúc & Duyệt: hỏi có lưu nội dung đang soạn trước không. Có -> lưu (yêu cầu có nội
+  // dung) rồi duyệt; Không -> duyệt thẳng (server kiểm tra result_in_html != rỗng).
+  const doApprove = async () => {
+    if (busy) return
+    // true = lưu rồi duyệt; false = duyệt không lưu; null = đóng (X/Esc/backdrop) -> ngắt hẳn.
+    const choice = await confirmDialog({
+      title: 'Kết thúc & Duyệt',
+      message: 'Bạn có cần lưu nội dung đang soạn thảo trước khi duyệt?',
+      confirmLabel: 'Lưu rồi duyệt',
+      cancelLabel: 'Duyệt, không lưu',
+    })
+    if (choice === null) return
+    setBusy(true)
+    try {
+      if (choice === true) {
+        if (!editorHasContent()) {
+          notifyError('Chưa có nội dung kết quả để lưu')
+          return
+        }
+        const html = resultRef.current ? resultRef.current.innerHTML : ''
+        const saved = await saveReadingOrderResult(uuid, html)
+        if (!saved) return // lưu lỗi -> dừng, không duyệt
+        setDetail(saved)
+      }
+      const updated = await approveReadingOrder(uuid)
+      if (updated) {
+        setDetail(updated)
+        notifySuccess('Duyệt ca thành công')
       }
     } catch {
       // toast lỗi đã hiển thị
@@ -152,6 +201,7 @@ export default function CaseDetailTab({ uuid }) {
         { key: 'cancelLock', label: 'Hủy khóa', icon: '🔓', run: () => runAction(cancelReadingOrderLock, 'Hủy ca thành công') },
         { key: 'pickTemplate', label: 'Chọn mẫu phiếu', icon: '📋', run: () => setTemplateModalOpen(true) },
         { key: 'saveResult', label: 'Lưu kết quả', icon: '💾', run: doSaveResult },
+        { key: 'approve', label: 'Kết thúc & Duyệt', icon: '✅', run: doApprove },
       ]
     }
     return []
@@ -200,6 +250,15 @@ export default function CaseDetailTab({ uuid }) {
           <Row label="Địa chỉ">{detail.fullAddress || '—'}</Row>
           <Row label="Trạng thái">
             <span className={`inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium ${s.cls}`}>{s.label}</span>
+          </Row>
+          <Row label="Trả KQ">
+            <span
+              className={`inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                detail.resultReturned ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {detail.resultReturned ? 'Đã trả' : 'Chưa trả'}
+            </span>
           </Row>
         </Section>
       </aside>
@@ -253,6 +312,20 @@ export default function CaseDetailTab({ uuid }) {
           caBodyParts={detail.bodyParts || []}
           onPick={pickTemplate}
           onClose={() => setTemplateModalOpen(false)}
+        />
+      )}
+
+      {printOpen && (
+        <PrintResultModal
+          uuid={uuid}
+          detail={detail}
+          /* READING: lấy nội dung đang soạn; trạng thái khác: dùng result_in_html đã lưu */
+          resultContent={
+            detail.status === 'READING'
+              ? (resultRef.current ? resultRef.current.innerHTML : '')
+              : (detail.resultInHtml || '')
+          }
+          onClose={() => setPrintOpen(false)}
         />
       )}
     </div>

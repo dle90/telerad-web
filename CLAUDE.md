@@ -45,3 +45,7 @@ src/
 - **Đăng nhập** ([pages/Login.jsx](src/pages/Login.jsx)) — sau login gọi `getMe` để lấy hồ sơ.
 - **Quản lý nhân sự** ([features/staff](src/features/staff/StaffPage.jsx)) — danh sách + lọc, thêm/sửa hồ sơ, cấp tài khoản, đặt lại mật khẩu, phân quyền đọc phim (modalities + đối tác), phân vai trò, kích hoạt/ngừng.
 - **Đối tác tích hợp** ([features/partner](src/features/partner/PartnerPage.jsx)) — danh sách + lọc, thêm (kèm credential telerad + cấu hình callback)/sửa, cấu hình callback, đổi mật khẩu, kích hoạt/ngừng.
+- **Ca đọc** ([features/reading](src/features/reading/ReadingPage.jsx)) — danh sách ca + tab chi tiết; nhận ca / hủy khóa / chọn mẫu phiếu / lưu kết quả; **In kết quả** (xem trước A4 + in bằng paged.js).
+
+## 5. Tài liệu
+- **Mẫu phiếu kết quả (in / xem trước)** — quy ước cấu trúc bắt buộc, cơ chế auto-derive padding (sửa template là ăn theo, không hardcode), bảng token, checklist sinh mẫu mới: [docs/mau-phieu-ket-qua.md](docs/mau-phieu-ket-qua.md). **Đọc trước khi sinh / sửa / giải thích một mẫu phiếu in.**
