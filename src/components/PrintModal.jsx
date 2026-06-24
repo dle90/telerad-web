@@ -207,7 +207,9 @@ export default function PrintModal({
     <div className="fixed inset-0 z-[9999] flex flex-col bg-gray-800">
       <div className="h-11 shrink-0 flex items-center justify-between px-4 bg-gray-900 text-gray-100">
         <span className="text-sm font-semibold">{title}</span>
-        <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng">✕</button>
+        {onClose && (
+          <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng">✕</button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 flex">
@@ -250,7 +252,9 @@ export default function PrintModal({
             )}
             <div className="border-t border-gray-200 p-3 flex items-center justify-end gap-2">
               <button onClick={doPrint} disabled={!blobUrl} className="px-3 py-1.5 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">In</button>
-              <button onClick={onClose} className="px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">Đóng</button>
+              {onClose && (
+                <button onClick={onClose} className="px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">Đóng</button>
+              )}
             </div>
           </div>
         )}
@@ -260,7 +264,9 @@ export default function PrintModal({
       {!hasPanel && (
         <div className="absolute bottom-4 right-4 flex items-center gap-2">
           <button onClick={doPrint} disabled={!blobUrl} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow disabled:opacity-50">In</button>
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold bg-white text-gray-700 rounded-lg hover:bg-gray-100 shadow">Đóng</button>
+          {onClose && (
+            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold bg-white text-gray-700 rounded-lg hover:bg-gray-100 shadow">Đóng</button>
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { getReadingOrderResultSheet } from '@/api'
+import { getPublicResultSheet } from '@/api'
 import PrintModal from '@/components/PrintModal'
 
 // Modal "In kết quả" = PrintModal chung. Dữ liệu in do BACKEND trả (key = tên token) -> không map.
@@ -30,7 +30,7 @@ export default function PrintResultModal({ uuid, resultContent, onClose }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    getReadingOrderResultSheet(uuid)
+    getPublicResultSheet(uuid)
       .then((r) => alive && setResp(r || null))
       .catch(() => alive && setResp(null))
       .finally(() => alive && setLoading(false))
