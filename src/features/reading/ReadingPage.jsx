@@ -269,11 +269,11 @@ const HEADERS = [
   'Tên bệnh nhân',
   'Đối tác',
   'Dịch vụ',
-  'Loại chụp',
   'Ngày chụp',
   'Ngày đọc',
   'Bác sĩ đọc',
   'Trạng thái',
+  'Trả KQ',
 ]
 
 function WorklistTable({ list, openDetail }) {
@@ -323,7 +323,6 @@ function WorklistTable({ list, openDetail }) {
                     <td className="px-4 py-3 font-medium text-gray-800">{r.fullName}</td>
                     <td className="px-4 py-3 text-gray-600">{r.partnerName}</td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{r.serviceName || '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{r.modality || '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
                       {formatDateTime(r.performEndedAt, { withSeconds: false }) || '—'}
                     </td>
@@ -334,6 +333,15 @@ function WorklistTable({ list, openDetail }) {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium ${s.cls}`}>
                         {s.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={`inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          r.resultReturned ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {r.resultReturned ? 'Đã trả' : 'Chưa trả'}
                       </span>
                     </td>
                   </tr>

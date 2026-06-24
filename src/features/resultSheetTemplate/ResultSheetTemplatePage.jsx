@@ -260,6 +260,8 @@ function ResultSheetDetailPanel({ sheet, onClose, onEdit }) {
     >
       <FieldRow label="Cơ sở y tế">{sheet.teleradPartnerName || '—'}</FieldRow>
       <FieldRow label="Mã CSYT">{sheet.teleradPartnerCode || '—'}</FieldRow>
+      <FieldRow label="Cỡ chữ kết quả (pt)">{sheet.resultFontSize ?? '—'}</FieldRow>
+      <FieldRow label="Giãn dòng kết quả">{sheet.resultLineSpacing ?? '—'}</FieldRow>
       <FieldRow label="Trạng thái">{sheet.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
       <div className="pt-3">
         <div className="text-xs font-medium text-gray-500 pb-1">Mẫu phiếu</div>
@@ -277,6 +279,8 @@ function ResultSheetFormPanel({ sheet, partners, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({
     teleradPartnerUuid: sheet?.teleradPartnerUuid || '',
     htmlContent: sheet?.htmlContent || '',
+    resultFontSize: sheet?.resultFontSize ?? 13,
+    resultLineSpacing: sheet?.resultLineSpacing ?? 1.5,
   }))
   const [saving, setSaving] = useState(false)
 
@@ -286,12 +290,17 @@ function ResultSheetFormPanel({ sheet, partners, onClose, onSaved }) {
     e.preventDefault()
     setSaving(true)
     try {
+      const common = {
+        htmlContent: form.htmlContent,
+        resultFontSize: Number(form.resultFontSize),
+        resultLineSpacing: Number(form.resultLineSpacing),
+      }
       if (isEdit) {
-        await updateImagingResultSheetTemplate(sheet.uuid, { htmlContent: form.htmlContent })
+        await updateImagingResultSheetTemplate(sheet.uuid, common)
       } else {
         await createImagingResultSheetTemplate({
           teleradPartnerUuid: form.teleradPartnerUuid,
-          htmlContent: form.htmlContent,
+          ...common,
         })
       }
       onSaved()
@@ -339,6 +348,38 @@ function ResultSheetFormPanel({ sheet, partners, onClose, onSaved }) {
               ))}
             </select>
           )}
+        </div>
+        {/* Cỡ chữ + giãn dòng vùng kết quả — dùng khi IN phiếu */}
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Cỡ chữ kết quả (pt) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={form.resultFontSize}
+              onChange={(e) => set('resultFontSize', e.target.value)}
+              className={inputCls}
+              disabled={saving}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Giãn dòng kết quả <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              min={0.5}
+              step={0.1}
+              value={form.resultLineSpacing}
+              onChange={(e) => set('resultLineSpacing', e.target.value)}
+              className={inputCls}
+              disabled={saving}
+              required
+            />
+          </div>
         </div>
         <div className="flex-1 min-h-0 flex flex-col">
           <label className="block text-xs font-medium text-gray-500 mb-1">

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import ApiErrorToast from './components/ApiErrorToast'
 import SuccessToast from './components/SuccessToast'
+import ConfirmDialog from './components/ConfirmDialog'
 import Login from './pages/Login'
 import StaffPage from './features/staff/StaffPage'
 import PartnerPage from './features/partner/PartnerPage'
@@ -39,6 +40,8 @@ export default function App() {
       <ApiErrorToast />
       {/* Global toast cho thông báo thành công (notifySuccess). */}
       <SuccessToast />
+      {/* Modal xác nhận dùng chung (confirmDialog). */}
+      <ConfirmDialog />
     </AuthProvider>
   )
 }

@@ -150,11 +150,11 @@ export default function ResultTemplatePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Tên mẫu biểu', 'Loại chụp', 'Bộ phận', 'Cỡ chữ', 'Giãn dòng', 'Trạng thái', 'Thao tác'].map((h, i) => (
+                {['Tên mẫu biểu', 'Loại chụp', 'Bộ phận', 'Trạng thái', 'Thao tác'].map((h, i) => (
                   <th
                     key={i}
                     className={`px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap ${
-                      h === 'Thao tác' || h === 'Cỡ chữ' || h === 'Giãn dòng' ? 'text-center' : 'text-left'
+                      h === 'Thao tác' ? 'text-center' : 'text-left'
                     }`}
                   >
                     {h}
@@ -165,13 +165,13 @@ export default function ResultTemplatePage() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
                     Đang tải…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
                     Không có dữ liệu
                   </td>
                 </tr>
@@ -183,8 +183,6 @@ export default function ResultTemplatePage() {
                     <td className="px-4 py-3 text-xs text-gray-600 max-w-xs truncate">
                       {(t.bodyParts || []).length ? t.bodyParts.join(', ') : '—'}
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-600 tabular-nums">{t.fontSize}</td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-600 tabular-nums">{t.lineSpacing}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {t.isActive ? (
                         <span className="inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">
@@ -283,8 +281,6 @@ function ResultTemplateDetailPanel({ template, onClose, onEdit }) {
       <FieldRow label="Tên mẫu biểu">{template.name}</FieldRow>
       <FieldRow label="Loại chụp">{labelOf(MODALITY_OPTIONS, template.modality)}</FieldRow>
       <FieldRow label="Bộ phận chụp">{(template.bodyParts || []).join(', ') || '—'}</FieldRow>
-      <FieldRow label="Cỡ chữ (pt)">{template.fontSize}</FieldRow>
-      <FieldRow label="Giãn dòng">{template.lineSpacing}</FieldRow>
       <FieldRow label="Thứ tự">{template.displayOrder ?? '—'}</FieldRow>
       <FieldRow label="Trạng thái">{template.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
       <div className="pt-3">
@@ -305,8 +301,6 @@ function ResultTemplateFormPanel({ template, onClose, onSaved }) {
     modality: template?.modality || 'CT',
     name: template?.name || '',
     bodyParts: template?.bodyParts || [],
-    fontSize: template?.fontSize ?? 13,
-    lineSpacing: template?.lineSpacing ?? 1.5,
     displayOrder: template?.displayOrder ?? '',
     htmlContent: template?.htmlContent || '',
   }))
@@ -336,8 +330,6 @@ function ResultTemplateFormPanel({ template, onClose, onSaved }) {
         name: form.name,
         bodyParts: form.bodyParts,
         htmlContent: form.htmlContent,
-        fontSize: Number(form.fontSize),
-        lineSpacing: Number(form.lineSpacing),
         displayOrder: form.displayOrder === '' ? null : Number(form.displayOrder),
       }
       if (isEdit) await updateImagingResultTemplate(template.uuid, body)
@@ -373,8 +365,8 @@ function ResultTemplateFormPanel({ template, onClose, onSaved }) {
       }
     >
       <form id="result-template-form" onSubmit={handleSubmit} className="flex flex-col h-full min-h-0 space-y-4">
-        {/* Hàng tham số: loại chụp + cỡ chữ + giãn dòng + thứ tự */}
-        <div className="grid grid-cols-4 gap-3">
+        {/* Hàng tham số: loại chụp + thứ tự hiển thị */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>
               Loại chụp <span className="text-rose-500">*</span>
@@ -386,18 +378,6 @@ function ResultTemplateFormPanel({ template, onClose, onSaved }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className={labelCls}>
-              Cỡ chữ (pt) <span className="text-rose-500">*</span>
-            </label>
-            <input type="number" min={1} value={form.fontSize} onChange={(e) => set('fontSize', e.target.value)} className={inputCls} disabled={saving} required />
-          </div>
-          <div>
-            <label className={labelCls}>
-              Giãn dòng <span className="text-rose-500">*</span>
-            </label>
-            <input type="number" min={0.5} step={0.1} value={form.lineSpacing} onChange={(e) => set('lineSpacing', e.target.value)} className={inputCls} disabled={saving} required />
           </div>
           <div>
             <label className={labelCls}>Thứ tự hiển thị</label>

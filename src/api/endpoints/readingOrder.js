@@ -24,6 +24,15 @@ export const saveReadingOrderResult = (readingOrderUuid, resultInHtml) =>
     body: { resultInHtml },
   })
 
+// Kết thúc & duyệt (READING của mình + có kết quả -> APPROVED). Trả về chi tiết ca.
+export const approveReadingOrder = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/end-reading-and-approve`, { method: 'POST' })
+
+// Mẫu phiếu kết quả + dữ liệu in của ca đọc: { htmlContent, data } với data.key = ĐÚNG tên
+// token trên mẫu (patientName, readBy, resultFontSize...) -> fillTokens thẳng, không map.
+export const getReadingOrderResultSheet = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/result-sheet`)
+
 // Sinh URL mở PACS viewer cho 1 ca đọc (kèm view-token trong URL hash). Trả về
 // chuỗi URL để mở tab mới đọc ảnh DICOM.
 export const generateReadingOrderViewerUrl = (readingOrderUuid) =>

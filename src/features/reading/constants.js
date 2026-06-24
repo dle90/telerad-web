@@ -7,11 +7,14 @@ export const READING_STATUS = {
 }
 
 // Tuỳ chọn cho filter "Tình trạng ca" (giữ đúng thứ tự luồng).
+// READING_ONGOING_BY_ME là pseudo-status CHỈ DÙNG ĐỂ LỌC (không phải status thật của ca):
+// backend dịch sang status=READING + assigned_to = user đăng nhập.
 export const READING_STATUS_OPTIONS = [
   { value: 'UNREAD', label: 'Chưa đọc' },
   { value: 'READING', label: 'Đang đọc' },
   { value: 'PENDING_APPROVAL', label: 'Đã đọc, chờ duyệt' },
   { value: 'APPROVED', label: 'Đã duyệt' },
+  { value: 'READING_ONGOING_BY_ME', label: 'Đang nhận bởi tôi' },
 ]
 
 // Tuỳ chọn cho filter "Trả kết quả".
