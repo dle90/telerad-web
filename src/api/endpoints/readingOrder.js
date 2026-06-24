@@ -28,10 +28,11 @@ export const saveReadingOrderResult = (readingOrderUuid, resultInHtml) =>
 export const approveReadingOrder = (readingOrderUuid) =>
   apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/end-reading-and-approve`, { method: 'POST' })
 
-// Mẫu phiếu kết quả + dữ liệu in của ca đọc: { htmlContent, data } với data.key = ĐÚNG tên
-// token trên mẫu (patientName, readBy, resultFontSize...) -> fillTokens thẳng, không map.
-export const getReadingOrderResultSheet = (readingOrderUuid) =>
-  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/result-sheet`)
+// Mẫu phiếu kết quả + dữ liệu in (CÔNG KHAI, không cần đăng nhập): { htmlContent, resultFontSize,
+// resultLineSpacing, data } với data.key = ĐÚNG tên token trên mẫu -> fillTokens thẳng, không map.
+// Dùng cho cả màn in của staff lẫn trang public (uuid của ca = "khóa" truy cập).
+export const getPublicResultSheet = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/public/reading-order/${readingOrderUuid}/result-sheet`)
 
 // Sinh URL mở PACS viewer cho 1 ca đọc (kèm view-token trong URL hash). Trả về
 // chuỗi URL để mở tab mới đọc ảnh DICOM.
