@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Icon } from '@/design-system/icons'
 
 // Global listener for `api:error` events dispatched by apiFetch (client.js).
 // Surfaces the backend message as a dismissible toast so every failing API call
@@ -27,14 +28,14 @@ export default function ApiErrorToast() {
           key={t.id}
           className="bg-red-600 text-white text-sm px-4 py-3 rounded-lg shadow-lg flex items-start gap-2"
         >
-          <span className="flex-shrink-0 mt-0.5">⚠</span>
+          <span className="flex-shrink-0 mt-0.5"><Icon name="alert-triangle" size={15} /></span>
           <span className="flex-1 break-words">{t.message}</span>
           <button
             onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
             className="flex-shrink-0 text-white/80 hover:text-white"
             aria-label="Đóng"
           >
-            ✕
+            <Icon name="x" size={16} />
           </button>
         </div>
       ))}

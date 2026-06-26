@@ -14,14 +14,15 @@ import { statusMeta } from './constants'
 import { useReadingOrderDetail } from './hooks'
 import TemplatePickerModal from './TemplatePickerModal'
 import PrintResultModal from './PrintResultModal'
+import { Icon } from '@/design-system/icons'
 
 // Thanh công cụ tĩnh (luôn hiện). "Xem ảnh" có logic; các nút còn lại gắn sau.
 const TOOLBAR = [
-  { key: 'viewImage', label: 'Xem ảnh', icon: '👁️' },
-  { key: 'print', label: 'In kết quả', icon: '🖨️' },
-  { key: 'video', label: 'Xem - Tải Video', icon: '🎞️' },
-  { key: 'attachment', label: 'Tải tệp đính kèm', icon: '📎' },
-  { key: 'portal', label: 'In Tra cứu Portal', icon: '🖨️' },
+  { key: 'viewImage', label: 'Xem ảnh', icon: 'eye' },
+  { key: 'print', label: 'In kết quả', icon: 'print' },
+  { key: 'video', label: 'Xem - Tải Video', icon: 'scan' },
+  { key: 'attachment', label: 'Tải tệp đính kèm', icon: 'link' },
+  { key: 'portal', label: 'In Tra cứu Portal', icon: 'print' },
 ]
 
 const genderLabel = (g) => {
@@ -194,14 +195,14 @@ export default function CaseDetailTab({ uuid }) {
   const actionButtonsFor = (d) => {
     if (!d) return []
     if (d.status === 'UNREAD') {
-      return [{ key: 'receive', label: 'Nhận ca', icon: '🔒', run: doReceive }]
+      return [{ key: 'receive', label: 'Nhận ca', icon: 'lock', run: doReceive }]
     }
     if (d.status === 'READING' && d.assignedToMe) {
       return [
-        { key: 'cancelLock', label: 'Hủy khóa', icon: '🔓', run: () => runAction(cancelReadingOrderLock, 'Hủy ca thành công') },
-        { key: 'pickTemplate', label: 'Chọn mẫu phiếu', icon: '📋', run: () => setTemplateModalOpen(true) },
-        { key: 'saveResult', label: 'Lưu kết quả', icon: '💾', run: doSaveResult },
-        { key: 'approve', label: 'Kết thúc & Duyệt', icon: '✅', run: doApprove },
+        { key: 'cancelLock', label: 'Hủy khóa', icon: 'unlock', run: () => runAction(cancelReadingOrderLock, 'Hủy ca thành công') },
+        { key: 'pickTemplate', label: 'Chọn mẫu phiếu', icon: 'clipboard', run: () => setTemplateModalOpen(true) },
+        { key: 'saveResult', label: 'Lưu kết quả', icon: 'save', run: doSaveResult },
+        { key: 'approve', label: 'Kết thúc & Duyệt', icon: 'check-circle', run: doApprove },
       ]
     }
     return []
@@ -275,7 +276,7 @@ export default function CaseDetailTab({ uuid }) {
               className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-50"
               title={b.label}
             >
-              <span className="text-base leading-none">{b.icon}</span>
+              <span className="leading-none"><Icon name={b.icon} size={16} /></span>
               <span className="whitespace-nowrap">{b.label}</span>
             </button>
           ))}
@@ -286,7 +287,7 @@ export default function CaseDetailTab({ uuid }) {
               className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] text-gray-600 hover:bg-white hover:text-blue-700 hover:shadow-sm transition-colors"
               title={b.label}
             >
-              <span className="text-base leading-none">{b.icon}</span>
+              <span className="leading-none"><Icon name={b.icon} size={16} /></span>
               <span className="whitespace-nowrap">{b.label}</span>
             </button>
           ))}

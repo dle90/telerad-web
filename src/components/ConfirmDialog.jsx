@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Icon } from '@/design-system/icons'
 
 // Host cho confirmDialog() — mount 1 lần ở App. Lắng nghe 'app:confirm', hiện modal xác nhận.
 // 3 kết quả:
@@ -63,7 +64,7 @@ export default function ConfirmDialog() {
             className="-mr-1 -mt-0.5 shrink-0 text-gray-400 hover:text-gray-600 text-lg leading-none"
             aria-label="Đóng"
           >
-            ✕
+            <Icon name="x" size={18} />
           </button>
         </div>
         <div className="px-5 pb-4 text-sm text-gray-600 whitespace-pre-line">{message}</div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Icon } from '@/design-system/icons'
 import { ddmmyyyyToISO, isoToDDMMYYYY } from '@/lib/format'
 
 // Tự chèn "/" khi gõ ngày: "010" -> "01/0", "01012026" -> "01/01/2026".
@@ -98,7 +99,7 @@ export default function DateField({ value, onChange, disabled = false }) {
         title="Mở lịch"
         className="border border-l-0 border-gray-200 rounded-r-lg px-2 py-2 text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50"
       >
-        📅
+        <Icon name="calendar" size={15} />
       </button>
       {/* Native date picker ẩn — chỉ để bật lịch qua nút 📅. */}
       <input

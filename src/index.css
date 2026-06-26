@@ -1,7 +1,435 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Layout */
+    --header-h: 56px;
+    --sidebar-w: 224px;
+
+    /* Sidebar */
+    --sidebar-bg:           #0B1628;
+    --sidebar-hover:        #14243E;
+    --sidebar-active:       #2D5FE8;
+    --sidebar-border:       #182847;
+    --sidebar-text:         #7AAEC9;
+    --sidebar-text-muted:   #48698A;
+    --sidebar-text-active:  #FFFFFF;
+    --sidebar-text-group:   #3A5F7C;
+
+    /* Surface */
+    --bg-page:    #F6F8FB;   /* page background */
+    --bg-surface: #FFFFFF;   /* card / panel */
+    --bg-subtle:  #EEF2F8;   /* subtle tinted */
+    --bg-inset:   #E8EEF6;   /* input bg, code */
+    --bg-hover:   #EEF3FD;   /* row/item hover — blue tinted */
+    --bg-active:  #E0EBFF;   /* selected/active — blue tinted */
+
+    /* Border */
+    --border:        #DDE3EC;  /* default border */
+    --border-subtle: #EDF1F7;  /* hairline */
+    --border-strong: #C4CFDE;  /* strong */
+    --border-focus:  #2D5FE8;  /* focus ring */
+
+    /* Text */
+    --text-primary:   #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary:  #94a3b8;
+    --text-disabled:  #cbd5e1;
+
+    /* Brand */
+    --color-primary:       #2D5FE8;
+    --color-primary-hover: #1A4FD6;
+    --color-primary-light: #EEF4FF;
+    --color-teal:          #0891B2;
+    --color-teal-light:    #F0FDFA;
+    --color-success:       #059669;
+    --color-success-light: #ecfdf5;
+    --color-warning:       #d97706;
+    --color-warning-light: #fffbeb;
+    --color-danger:        #dc2626;
+    --color-danger-light:  #fef2f2;
+
+    /* Radius */
+    --radius-sm:  0.375rem;
+    --radius-md:  0.5rem;
+    --radius-lg:  0.75rem;
+    --radius-xl:  1rem;
+    --radius-2xl: 1.25rem;
+
+    /* Shadow */
+    --shadow-card:   0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+    --shadow-modal:  0 24px 48px -8px rgb(0 0 0 / 0.2), 0 8px 16px -4px rgb(0 0 0 / 0.1);
+    --shadow-dropdown: 0 8px 16px -2px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+
+    /* Transitions */
+    --t-fast:   100ms ease;
+    --t-base:   150ms ease;
+    --t-slow:   250ms ease-in-out;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #F6F8FB;
+    color: #1E293B;
+    line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar         { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track   { background: transparent; }
+  ::-webkit-scrollbar-thumb   { background: #C4CFDE; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* Focus ring */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MEDISYNC TEXT SYSTEM
+   Hệ thống chữ thiết kế cho mật độ thông tin cao trên màn hình y tế
+
+   Scale:
+     t-display   20px/700   Page hero, login title
+     t-title     15px/600   Page title, section title
+     t-heading   13px/600   Card title, panel header, sub-section
+     t-body      13px/400   Body text, form values, list items
+     t-strong    13px/500   Emphasized body, patient names
+     t-label     12px/500   Form labels, filter labels
+     t-caption   11px/400   Timestamps, hints, secondary metadata
+     t-th        11px/600   Table column headers (auto-uppercase)
+     t-micro     10px/600   Section group labels (auto-uppercase)
+     t-mono      12px/400   Patient codes, invoice #, phone, IDs
+     t-kpi       22px/700   Dashboard KPI large values
+     t-kpi-sm    16px/600   Secondary KPI values
+
+   Color helpers:
+     .tc-1   neutral-900   Primary content
+     .tc-2   neutral-700   Default body
+     .tc-3   neutral-500   Secondary / subtle
+     .tc-4   neutral-400   Muted / placeholder / disabled
+     .tc-a   primary-600   Accent / links
+     .tc-err danger-600    Errors / negative
+     .tc-ok  success-600   Success / positive
+══════════════════════════════════════════════════════════════════════════════ */
+@layer components {
+
+  /* ── Type scale ──────────────────────────────────────────────────────────── */
+  .t-display {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.4px;
+  }
+  .t-title {
+    font-size: 0.9375rem;    /* 15px */
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.25px;
+  }
+  .t-heading {
+    font-size: 0.8125rem;    /* 13px */
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.15px;
+  }
+  .t-body {
+    font-size: 0.8125rem;    /* 13px */
+    font-weight: 400;
+    line-height: 1.55;
+    letter-spacing: -0.1px;
+  }
+  .t-strong {
+    font-size: 0.8125rem;    /* 13px */
+    font-weight: 500;
+    line-height: 1.55;
+    letter-spacing: -0.1px;
+  }
+  .t-label {
+    font-size: 0.75rem;      /* 12px */
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+  .t-caption {
+    font-size: 0.6875rem;    /* 11px */
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+  .t-caption-strong {
+    font-size: 0.6875rem;    /* 11px */
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+  .t-th {
+    font-size: 0.6875rem;    /* 11px */
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .t-micro {
+    font-size: 0.625rem;     /* 10px */
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+  .t-mono {
+    font-size: 0.75rem;      /* 12px */
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-mono-strong {
+    font-size: 0.75rem;      /* 12px */
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-kpi {
+    font-size: 1.375rem;     /* 22px */
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-kpi-sm {
+    font-size: 1rem;         /* 16px */
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* ── Semantic color shortcuts ────────────────────────────────────────────── */
+  .tc-1   { color: #0f172a; } /* neutral-900  — primary content */
+  .tc-2   { color: #334155; } /* neutral-700  — default body */
+  .tc-3   { color: #64748b; } /* neutral-500  — secondary / subtle */
+  .tc-4   { color: #94a3b8; } /* neutral-400  — muted / disabled */
+  .tc-a   { color: #2563eb; } /* primary-600  — accent / link */
+  .tc-err { color: #dc2626; } /* danger-600   — error / negative */
+  .tc-ok  { color: #059669; } /* success-600  — positive */
+
+  /* ── Composite presets (size + color) ───────────────────────────────────── */
+  /* Page title bar */
+  .page-title    { @apply t-title tc-1; }
+  .page-subtitle { @apply t-caption tc-3; }
+
+  /* Section in a card */
+  .section-title   { @apply t-heading tc-1; }
+  .section-caption { @apply t-caption tc-3; }
+
+  /* Table th cell content */
+  .th-cell { @apply t-th tc-3; }
+
+  /* Form controls */
+  .form-label    { @apply t-label tc-2; }
+  .form-helper   { @apply t-caption tc-3; }
+  .form-error    { @apply t-caption tc-err; }
+
+  /* Data cell */
+  .cell-primary   { @apply t-strong tc-1; }
+  .cell-secondary { @apply t-caption tc-3; }
+  .cell-mono      { @apply t-mono tc-2; }
+
+/* ── Global Component Utilities ────────────────────────────────────────────── */
+
+  /* Page layout */
+  .page-header {
+    @apply mb-5 flex items-start justify-between gap-4;
+  }
+  .page-title {
+    @apply text-xl font-semibold text-neutral-900 leading-tight;
+  }
+  .page-subtitle {
+    @apply text-sm text-neutral-500 mt-0.5;
+  }
+
+  /* Card primitives — use design-system/components/Card.jsx for full API */
+  .ds-card {
+    @apply bg-white rounded-xl border border-neutral-200 shadow-card;
+  }
+  .ds-card-header {
+    @apply px-5 py-4 border-b border-neutral-200 flex items-center justify-between;
+  }
+  .ds-card-body {
+    @apply px-5 py-4;
+  }
+  .ds-card-footer {
+    @apply px-5 py-3 border-t border-neutral-100 bg-neutral-50 rounded-b-xl flex items-center justify-end gap-2;
+  }
+
+  /* Status badges */
+  .badge-active   { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-success-50 text-success-700; }
+  .badge-inactive { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-neutral-100 text-neutral-500; }
+  .badge-pending  { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-warning-50 text-warning-700; }
+  .badge-critical { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-danger-50 text-danger-700; }
+  .badge-info     { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-primary-50 text-primary-700; }
+  .badge-teal     { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-700; }
+
+  /* Input base */
+  .ds-input {
+    @apply w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900
+           placeholder:text-neutral-400 shadow-input
+           transition-[border-color,box-shadow] duration-150
+           focus:outline-none focus:border-primary-400 focus:shadow-input-focus
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-neutral-50;
+  }
+  .ds-input-error {
+    @apply border-danger-400 focus:border-danger-400 focus:shadow-none focus:ring-2 focus:ring-danger-200;
+  }
+  .ds-label {
+    @apply block text-sm font-medium text-neutral-700 mb-1;
+  }
+  .ds-helper {
+    @apply text-xs text-neutral-500 mt-1;
+  }
+  .ds-error-msg {
+    @apply text-xs text-danger-600 mt-1 flex items-center gap-1;
+  }
+
+  /* Divider */
+  .ds-divider {
+    @apply border-t border-neutral-200 my-4;
+  }
+
+  /* Spinner */
+  .ds-spinner {
+    @apply animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+}
+
+/* ── Financial Tables ──────────────────────────────────────────────────────── */
+@layer utilities {
+  .table-container {
+    @apply overflow-x-auto rounded-xl border border-neutral-200;
+  }
+
+  .financial-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.8125rem;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .financial-table th {
+    background-color: #0B1628;
+    color: #e2edf8;
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: center;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-right: 1px solid #1a2f56;
+  }
+  .financial-table th:last-child { border-right: none; }
+
+  .financial-table th:first-child {
+    text-align: left;
+    min-width: 200px;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background-color: #0B1628;
+  }
+
+  .financial-table td {
+    padding: 5px 10px;
+    border-right: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .financial-table td:last-child { border-right: none; }
+
+  .financial-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 5;
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .row-group-header td {
+    background-color: #1A2F50 !important;
+    font-weight: 700;
+    color: #e2edf8;
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .row-total td {
+    background-color: #dbeafe !important;
+    font-weight: 700;
+    color: #1e40af;
+    border-top: 1px solid #bfdbfe;
+  }
+
+  .row-subtotal td {
+    background-color: #f1f5f9 !important;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .row-normal:hover td {
+    background-color: #f8fafc;
+  }
+
+  .negative-value { color: #dc2626 !important; }
+  .positive-value { color: #059669 !important; }
+}
+
+/* ── Print styles ──────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide everything except the printable area */
+  body > #root > * { display: none !important; }
+  .no-print         { display: none !important; }
+
+  /* Show only the print-area div */
+  .print-area {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 24px 32px !important;
+    background: white !important;
+    font-size: 12pt !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure table borders print */
+  .print-area table, .print-area th, .print-area td {
+    border-color: #999 !important;
+  }
 }

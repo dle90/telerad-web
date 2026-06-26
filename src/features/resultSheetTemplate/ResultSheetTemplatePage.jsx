@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
 import FieldRow from '@/components/FieldRow'
+import { Icon } from '@/design-system/icons'
 import { inputCls, inputClsTextarea } from '@/lib/ui'
 import {
   getPaginatedImagingResultSheetTemplates,
@@ -176,7 +177,7 @@ export default function ResultSheetTemplatePage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-3 text-sm">
                         <button onClick={() => openDetail(t)} title="Xem chi tiết" aria-label="Xem chi tiết" className="text-gray-500 hover:text-blue-600">
-                          👁️
+                          <Icon name="eye" size={14} />
                         </button>
                         <button
                           onClick={() => handleToggleActive(t)}
@@ -184,7 +185,7 @@ export default function ResultSheetTemplatePage() {
                           aria-label={t.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}
                           className={t.isActive ? 'text-gray-500 hover:text-red-600' : 'text-gray-500 hover:text-emerald-600'}
                         >
-                          {t.isActive ? '🚫' : '✅'}
+                          {t.isActive ? <Icon name="x-circle" size={14} /> : <Icon name="check-circle" size={14} />}
                         </button>
                       </div>
                     </td>
@@ -265,8 +266,12 @@ function ResultSheetDetailPanel({ sheet, onClose, onEdit }) {
       <FieldRow label="Trạng thái">{sheet.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
       <div className="pt-3">
         <div className="text-xs font-medium text-gray-500 pb-1">Mẫu phiếu</div>
+        {/* transform tạo containing-block → các phần tử position:fixed trong HTML
+            phiếu (header/footer A4) bị giữ TRONG khung preview, không tràn ra
+            viewport che modal (gây "đơ" không bấm được nút). */}
         <div
-          className="border border-gray-200 rounded-lg p-3 text-sm overflow-auto max-h-[45vh] bg-gray-50"
+          className="relative border border-gray-200 rounded-lg p-3 text-sm overflow-auto max-h-[45vh] bg-gray-50"
+          style={{ transform: 'translateZ(0)' }}
           dangerouslySetInnerHTML={{ __html: sheet.htmlContent || '' }}
         />
       </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '@/design-system/icons'
 
 // ============================================================================
 // PrintModal — modal in/xem trước A4 DÙNG CHUNG (paged.js client-side).
@@ -208,7 +209,7 @@ export default function PrintModal({
       <div className="h-11 shrink-0 flex items-center justify-between px-4 bg-gray-900 text-gray-100">
         <span className="text-sm font-semibold">{title}</span>
         {onClose && (
-          <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng">✕</button>
+          <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng"><Icon name="x" size={18} /></button>
         )}
       </div>
 

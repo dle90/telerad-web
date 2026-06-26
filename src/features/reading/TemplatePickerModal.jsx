@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { getPaginatedImagingResultTemplates } from '@/api'
+import { Icon } from '@/design-system/icons'
 
 // 5 loại chụp hệ thống (khi ca đọc không có modality).
 const ALL_MODALITIES = ['CT', 'MR', 'US', 'CR', 'MG']
@@ -47,7 +48,7 @@ export default function TemplatePickerModal({ caModality, caBodyParts, onPick, o
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <h2 className="text-sm font-semibold text-gray-800">Chọn mẫu phiếu</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 px-1" aria-label="Đóng">
-            ✕
+            <Icon name="x" size={18} />
           </button>
         </div>
 

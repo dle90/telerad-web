@@ -13,6 +13,7 @@ import CreateAccountModal from './components/CreateAccountModal'
 import CredentialResultModal from './components/CredentialResultModal'
 import ReadingPermissionModal from './components/ReadingPermissionModal'
 import RolesModal from './components/RolesModal'
+import { Icon } from '@/design-system/icons'
 
 const STATUS_FILTERS = [
   { value: '', label: 'Tất cả trạng thái' },
@@ -199,7 +200,7 @@ export default function StaffPage() {
                           aria-label="Xem chi tiết"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          👁️
+                          <Icon name="eye" size={14} />
                         </button>
                         <button
                           onClick={() => setModal({ type: 'reading-permission', staff: s })}
@@ -207,7 +208,7 @@ export default function StaffPage() {
                           aria-label="Phân quyền đọc phim"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          🛡️
+                          <Icon name="shield" size={14} />
                         </button>
                         <button
                           onClick={() => setModal({ type: 'roles', staff: s })}
@@ -215,7 +216,7 @@ export default function StaffPage() {
                           aria-label="Phân vai trò"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          🏷️
+                          <Icon name="tag" size={14} />
                         </button>
                         {s.hasAccount ? (
                           <button
@@ -224,7 +225,7 @@ export default function StaffPage() {
                             aria-label="Đặt lại mật khẩu"
                             className="text-gray-500 hover:text-orange-600"
                           >
-                            🔁
+                            <Icon name="refresh" size={14} />
                           </button>
                         ) : (
                           <button
@@ -233,7 +234,7 @@ export default function StaffPage() {
                             aria-label="Cấp tài khoản"
                             className="text-gray-500 hover:text-blue-600"
                           >
-                            🔑
+                            <Icon name="unlock" size={14} />
                           </button>
                         )}
                         <button
@@ -242,7 +243,7 @@ export default function StaffPage() {
                           aria-label={s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}
                           className={s.isActive ? 'text-gray-500 hover:text-red-600' : 'text-gray-500 hover:text-emerald-600'}
                         >
-                          {s.isActive ? '🚫' : '✅'}
+                          {s.isActive ? <Icon name="x-circle" size={14} /> : <Icon name="check-circle" size={14} />}
                         </button>
                       </div>
                     </td>

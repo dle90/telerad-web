@@ -1,15 +1,35 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { formatDateTime } from '@/lib/timezone'
 import DateField from '@/components/DateField'
+import { useSelectedPartner } from '@/context/SelectedPartnerContext'
 import { useReadingPartners, useReadingOrders } from './hooks'
 import { statusMeta, READING_STATUS_OPTIONS, RESULT_RETURNED_OPTIONS } from './constants'
 import CaseDetailTab from './CaseDetailTab'
+import { Icon } from '@/design-system/icons'
 
 // Màn "Ca đọc": chia tab giống phần mềm cũ. Tab "Danh sách ca" (worklist) luôn mở;
 // nhấp đúp 1 ca → mở tab chi tiết ca ngay trong màn (không phải tab trình duyệt).
 export default function ReadingPage() {
   const { groups, loading: treeLoading } = useReadingPartners()
   const list = useReadingOrders()
+
+  // Đồng bộ bộ lọc theo "chi nhánh" (đối tác) chọn trên topbar: đổi đối tác trên
+  // PartnerSwitcher → lọc toàn bộ danh sách ca theo đối tác đó. Cây trái vẫn
+  // dùng để chọn theo modality/đối tác cụ thể (ghi đè cục bộ).
+  const { partner } = useSelectedPartner()
+  useEffect(() => {
+    list.setFilters({ teleradPartnerUuid: partner?.uuid || '', modality: '' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partner])
+
+  // Cây "Đối tác tích hợp" bên trái cũng lọc theo đối tác chọn trên topbar: chỉ
+  // hiện chi nhánh đang chọn (ẩn nhóm modality không có chi nhánh đó). null = tất cả.
+  const visibleGroups = useMemo(() => {
+    if (!partner?.uuid) return groups
+    return groups
+      .map((g) => ({ ...g, partners: (g.partners || []).filter((p) => p.uuid === partner.uuid) }))
+      .filter((g) => g.partners.length > 0)
+  }, [groups, partner])
 
   // Tab chi tiết đang mở: [{ uuid, label }]. active = 'list' hoặc uuid 1 tab chi tiết.
   const [tabs, setTabs] = useState([])
@@ -31,7 +51,7 @@ export default function ReadingPage() {
       <div className="flex-1 min-h-0 mt-3">
         {/* Tab danh sách: luôn mount, chỉ ẩn khi không active để giữ bộ lọc + vị trí cuộn. */}
         <div className={`h-full ${active === 'list' ? '' : 'hidden'}`}>
-          <CaseListTab groups={groups} treeLoading={treeLoading} list={list} openDetail={openDetail} />
+          <CaseListTab groups={visibleGroups} treeLoading={treeLoading} list={list} openDetail={openDetail} />
         </div>
         {/* Mỗi tab chi tiết giữ nguyên trạng thái khi chuyển qua lại. */}
         {tabs.map((t) => (
@@ -73,7 +93,7 @@ function TabBar({ tabs, active, setActive, closeDetail }) {
             title="Đóng tab"
             aria-label="Đóng tab"
           >
-            ✕
+            <Icon name="x" size={16} />
           </button>
         </div>
       ))}
@@ -97,79 +117,47 @@ function CaseListTab({ groups, treeLoading, list, openDetail }) {
 
 // ─── Cây đối tác theo loại chụp ───────────────────────────────────────────────
 
+// Cây trái = danh sách LOẠI MÁY (modality). Chi nhánh (đối tác) chọn trên topbar
+// nên ở đây KHÔNG hiện chi nhánh con; click loại máy chỉ lọc theo modality, GIỮ
+// đối tác đang chọn (teleradPartnerUuid do PartnerSwitcher topbar quản lý).
 function PartnerTree({ groups, loading, filters, setFilters }) {
-  const isAll = !filters.teleradPartnerUuid && !filters.modality
+  const noModality = !filters.modality
 
   return (
-    <aside className="w-64 shrink-0 bg-white border border-gray-200 rounded-lg overflow-y-auto">
-      <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-gray-700">
-        Đối tác tích hợp
-      </div>
+    <aside className="w-64 shrink-0 bg-white border border-neutral-200 rounded-xl overflow-y-auto">
+      <div className="px-4 py-3 border-b border-neutral-100 t-strong tc-1">Loại máy</div>
       <div className="py-2">
         <button
-          onClick={() => setFilters({ teleradPartnerUuid: '', modality: '' })}
+          onClick={() => setFilters({ modality: '' })}
           className={`w-full text-left px-4 py-2 text-sm font-medium ${
-            isAll ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+            noModality ? 'bg-primary-50 text-primary-700' : 'tc-2 hover:bg-neutral-50'
           }`}
         >
           Toàn bộ
         </button>
 
         {loading ? (
-          <div className="px-4 py-3 text-sm text-gray-400">Đang tải…</div>
+          <div className="px-4 py-3 text-sm tc-4">Đang tải…</div>
         ) : groups.length === 0 ? (
-          <div className="px-4 py-3 text-sm text-gray-400">Chưa có đối tác nào.</div>
+          <div className="px-4 py-3 text-sm tc-4">Chưa có loại máy nào.</div>
         ) : (
-          groups.map((g) => <ModalityGroup key={g.modality} group={g} filters={filters} setFilters={setFilters} />)
+          groups.map((g) => {
+            const active = filters.modality === g.modality
+            return (
+              <button
+                key={g.modality}
+                onClick={() => setFilters({ modality: g.modality })}
+                className={`w-full text-left px-4 py-2 text-sm ${
+                  active ? 'bg-primary-50 text-primary-700 font-medium' : 'tc-2 hover:bg-neutral-50'
+                }`}
+              >
+                {g.modality}
+              </button>
+            )
+          })
         )}
       </div>
     </aside>
-  )
-}
-
-function ModalityGroup({ group, filters, setFilters }) {
-  const [open, setOpen] = useState(true)
-  const modalityActive = filters.modality === group.modality && !filters.teleradPartnerUuid
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-1 px-2 py-2 text-sm font-semibold ${
-          modalityActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-        }`}
-      >
-        <button onClick={() => setOpen((v) => !v)} className="w-5 text-gray-400 hover:text-gray-600">
-          {open ? '▾' : '▸'}
-        </button>
-        {/* Click nhãn loại chụp → lọc theo toàn bộ đối tác của loại chụp đó. */}
-        <button
-          onClick={() => setFilters({ modality: group.modality, teleradPartnerUuid: '' })}
-          className="flex-1 text-left hover:text-blue-700"
-        >
-          {group.modality}
-          <span className="ml-1 text-xs font-normal text-gray-400">({group.partners.length})</span>
-        </button>
-      </div>
-
-      {open &&
-        group.partners.map((p) => {
-          // Đối tác đang chọn = trùng cả uuid VÀ loại chụp của nhóm (1 đối tác có
-          // thể nằm ở nhiều nhóm loại chụp).
-          const active = filters.teleradPartnerUuid === p.uuid && filters.modality === group.modality
-          return (
-            <button
-              key={p.uuid}
-              onClick={() => setFilters({ teleradPartnerUuid: p.uuid, modality: group.modality })}
-              title={p.code}
-              className={`w-full text-left pl-9 pr-3 py-1.5 text-sm truncate ${
-                active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {p.name}
-            </button>
-          )
-        })}
-    </div>
   )
 }
 
