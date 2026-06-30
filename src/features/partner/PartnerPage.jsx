@@ -6,6 +6,7 @@ import PartnerDetailPanel from './components/PartnerDetailPanel'
 import PartnerFormPanel from './components/PartnerFormPanel'
 import PartnerConfigModal from './components/PartnerConfigModal'
 import ChangePasswordModal from './components/ChangePasswordModal'
+import { Icon } from '@/design-system/icons'
 
 const STATUS_FILTERS = [
   { value: '', label: 'Tất cả trạng thái' },
@@ -176,7 +177,7 @@ export default function PartnerPage() {
                           aria-label="Xem chi tiết"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          👁️
+                          <Icon name="eye" size={14} />
                         </button>
                         <button
                           onClick={() => setModal({ type: 'config', partner: p })}
@@ -184,7 +185,7 @@ export default function PartnerPage() {
                           aria-label="Cấu hình callback"
                           className="text-gray-500 hover:text-blue-600"
                         >
-                          🔗
+                          <Icon name="link" size={14} />
                         </button>
                         <button
                           onClick={() => setModal({ type: 'change-password', partner: p })}
@@ -192,7 +193,7 @@ export default function PartnerPage() {
                           aria-label="Đổi mật khẩu"
                           className="text-gray-500 hover:text-orange-600"
                         >
-                          🔑
+                          <Icon name="unlock" size={14} />
                         </button>
                         <button
                           onClick={() => handleToggleActive(p)}
@@ -200,7 +201,7 @@ export default function PartnerPage() {
                           aria-label={p.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}
                           className={p.isActive ? 'text-gray-500 hover:text-red-600' : 'text-gray-500 hover:text-emerald-600'}
                         >
-                          {p.isActive ? '🚫' : '✅'}
+                          {p.isActive ? <Icon name="x-circle" size={14} /> : <Icon name="check-circle" size={14} />}
                         </button>
                       </div>
                     </td>

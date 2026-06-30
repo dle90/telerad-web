@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Modal from './Modal'
+import { Icon } from '@/design-system/icons'
 import { changeOwnPassword } from '../api'
 import { inputClsLg } from '../lib/ui'
 
@@ -67,8 +68,8 @@ export default function ChangeOwnPasswordModal({ onClose }) {
       }
     >
       {done ? (
-        <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-3">
-          ✓ Đổi mật khẩu thành công.
+        <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-3 flex items-center gap-2">
+          <Icon name="check" size={14} /> Đổi mật khẩu thành công.
         </div>
       ) : (
         <form id="change-own-password-form" onSubmit={handleSubmit} className="space-y-3">

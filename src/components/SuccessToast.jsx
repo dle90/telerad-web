@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Icon } from '@/design-system/icons'
 
 // Global listener cho event 'app:success' (notifySuccess). Hiển thị toast xanh tự
 // tắt. Song song với ApiErrorToast (đỏ) cho lỗi API.
@@ -26,14 +27,14 @@ export default function SuccessToast() {
           key={t.id}
           className="bg-emerald-600 text-white text-sm px-4 py-3 rounded-lg shadow-lg flex items-start gap-2"
         >
-          <span className="flex-shrink-0 mt-0.5">✓</span>
+          <span className="flex-shrink-0 mt-0.5"><Icon name="check" size={15} /></span>
           <span className="flex-1 break-words">{t.message}</span>
           <button
             onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
             className="flex-shrink-0 text-white/80 hover:text-white"
             aria-label="Đóng"
           >
-            ✕
+            <Icon name="x" size={16} />
           </button>
         </div>
       ))}

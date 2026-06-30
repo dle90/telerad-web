@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '@/design-system/icons'
 
 // ============================================================================
 // PrintModal — modal in/xem trước A4 DÙNG CHUNG (paged.js client-side).
@@ -7,9 +8,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 // Props:
 //   title         tiêu đề thanh trên (mặc định "In")
 //   templateHtml  HTML mẫu phiếu (kèm <style>, token {{...}})
-//   data          map token { key: value } -> thay {{key}}. Nếu phiếu có danh sách thì
-//                 caller TỰ dựng HTML các dòng rồi để vào data (vd data.rows = "<tr>..</tr>.."),
-//                 template đặt {{rows}} ở chỗ cần (giá trị có thể là chuỗi HTML).
+//   data          map token { key: value } -> thay {{key}} (giá trị vô hướng). Phiếu có DANH SÁCH:
+//                 để data[listName] = MẢNG object; template khai báo <table data-list="listName">
+//                 + 1 <tr> mẫu, ô dùng {{$field}} -> PrintModal tự nhân bản dòng (xem §5 doc).
 //   fields        KHAI BÁO field sửa nhanh cho VÙNG "Thông tin" (panel phải) — THAY ĐỔI THEO
 //                 TỪNG MẪU PHIẾU. Mỗi field: { key, label, type, ... }. type:
 //                   'text'   -> ô nhập
@@ -31,12 +32,52 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 //  - Nền xem trước inject SAU khi paged.js xong (PagedConfig.after).
 // ============================================================================
 
-// Thay {{token}} bằng giá trị (split/join để không dính ký tự $ trong chuỗi thay thế).
-// Giá trị có thể là chuỗi HTML (vd danh sách dòng do caller dựng sẵn) -> chèn nguyên văn.
+// Thay {{token}} bằng giá trị vô hướng (split/join để không dính ký tự $ trong chuỗi thay thế).
+// Giá trị MẢNG / OBJECT KHÔNG thay ở đây — do expandLists ([data-list]) xử lý.
 const fillTokens = (html, map) => {
   let out = html
-  for (const [k, v] of Object.entries(map || {})) out = out.split(`{{${k}}}`).join(v ?? '')
+  for (const [k, v] of Object.entries(map || {})) {
+    if (v != null && typeof v === 'object') continue
+    out = out.split(`{{${k}}}`).join(v ?? '')
+  }
   return out
+}
+
+// ===== Danh sách / bảng LẶP DÒNG (khai báo, không cần backend dựng HTML) =====
+// Template:  <table data-list="serviceRows"> ... <tbody><tr><td>{{$stt}}</td>...</tr></tbody>
+//   - data-list="<listName>"  : tên mảng trong data (data[listName] = MẢNG object)
+//   - {{$field}}              : field của TỪNG phần tử mảng (tiền tố $ -> phân biệt {{field}} của body)
+// PrintModal nhân bản nội dung <tbody> (vùng mẫu) cho mỗi phần tử. host KHÔNG phải <table> thì
+// dùng chính host làm vùng mẫu (lặp các phần tử con) — tái dùng cho list không phải bảng.
+// data[listName] KHÔNG phải mảng (vd "In thử" chưa có dữ liệu) -> GIỮ NGUYÊN mẫu (hiện {{$field}}).
+const ITEM_TOKEN = /\{\{\s*\$([\w.-]+)\s*\}\}/g
+const escapeHtml = (s) =>
+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const getField = (item, path) => {
+  if (item == null) return undefined
+  if (Object.prototype.hasOwnProperty.call(item, path)) return item[path]
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), item)
+}
+const fillItemTokens = (tplHtml, item) =>
+  tplHtml.replace(ITEM_TOKEN, (_, f) => { const v = getField(item, f); return v == null ? '' : escapeHtml(v) })
+const expandLists = (html, data) => {
+  if (!html || html.indexOf('data-list') === -1) return html
+  let doc
+  try { doc = new DOMParser().parseFromString(html, 'text/html') } catch { return html }
+  const hosts = doc.querySelectorAll('[data-list]')
+  if (!hosts.length) return html
+  let touched = false
+  hosts.forEach((host) => {
+    const arr = data ? data[host.getAttribute('data-list')] : undefined
+    if (!Array.isArray(arr)) return // chưa có dữ liệu -> để nguyên dòng mẫu
+    const region = host.tagName.toLowerCase() === 'table'
+      ? (host.querySelector(':scope > tbody') || host)
+      : host
+    const tpl = region.innerHTML
+    region.innerHTML = arr.map((item) => fillItemTokens(tpl, item)).join('')
+    touched = true
+  })
+  return touched ? (doc.doctype ? '<!DOCTYPE html>\n' : '') + doc.documentElement.outerHTML : html
 }
 
 const ORIGIN = window.location.origin
@@ -95,8 +136,22 @@ const buildOverrideCss = (geo) =>
   `@page{size:A4;margin:${geo.top}mm ${geo.side}mm ${geo.bottom}mm ${geo.side}mm;` +
   `@top-center{content:element(rhead);}@bottom-center{content:element(rfoot);}}` +
   `</style>`
+// paged.js KHÔNG tự lặp <thead>/<colgroup> khi 1 <table> bị cắt sang trang sau: fragment ở
+// trang tiếp theo mất thead (mất tiêu đề cột) và mất colgroup (table-layout:fixed loạn width).
+// Sau khi phân trang xong, clone thead + colgroup từ fragment gốc (fragment CÓ thead) sang các
+// fragment cùng số cột phía sau. Chạy trong PagedConfig.after (chỉ luồng auto mới gọi after).
+const PAGED_TABLE_FIX =
+  `function pgKid(el,tag){for(var c=el.firstElementChild;c;c=c.nextElementSibling){if(c.tagName.toLowerCase()===tag)return c}return null}` +
+  `function pgCols(tb){var b=pgKid(tb,'tbody');var r=(b&&pgKid(b,'tr'))||tb.querySelector('tr');return r?r.children.length:0}` +
+  `function pgFixSplitTables(){try{var ts=document.querySelectorAll('table'),last=null,lastCols=0;` +
+  `for(var i=0;i<ts.length;i++){var tb=ts[i],th=pgKid(tb,'thead'),cols=pgCols(tb);` +
+  `if(th){last=tb;lastCols=cols;continue}if(!last||!cols||cols!==lastCols)continue;` +
+  `if(!pgKid(tb,'colgroup')){var cg=pgKid(last,'colgroup');if(cg)tb.insertBefore(cg.cloneNode(true),tb.firstChild)}` +
+  `var mth=pgKid(last,'thead');if(mth){var cl=mth.cloneNode(true),ci=pgKid(tb,'colgroup');if(ci)ci.insertAdjacentElement('afterend',cl);else tb.insertBefore(cl,tb.firstChild)}` +
+  `}}catch(e){}}`
 const PAGED_SCRIPTS =
-  `<script>window.PagedConfig={auto:true,after:function(){try{` +
+  `<script>${PAGED_TABLE_FIX}window.PagedConfig={auto:true,after:function(){try{` +
+  `pgFixSplitTables();` +
   `var s=document.createElement('style');` +
   `s.textContent='@media screen{html,body{background:#3f3f46;margin:0}.pagedjs_pages{padding:12px 0}.pagedjs_page{background:#fff;margin:0 auto 12px;box-shadow:0 0 8px rgba(0,0,0,.5)}}';` +
   `document.head.appendChild(s);` +
@@ -152,6 +207,14 @@ function PrintField({ field, value, onChange }) {
   )
 }
 
+// Zoom xem trước: nút +/−, thanh kéo %, ô hiển thị %.
+const ZOOM_MIN = 0.5
+const ZOOM_MAX = 2
+const ZOOM_STEP = 0.1
+const A4_PX = 820 // bề ngang khung A4 (~794px trang paged.js + chừa lề/box-shadow)
+const clampZoom = (z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100))
+const ZOOM_BTN = 'w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-base leading-none disabled:opacity-40'
+
 export default function PrintModal({
   title = 'In',
   templateHtml = '',
@@ -165,6 +228,8 @@ export default function PrintModal({
   const [blobUrl, setBlobUrl] = useState('')
   const [previewHeight, setPreviewHeight] = useState(1200)
   const [edits, setEdits] = useState({}) // chỉ chứa field user đã sửa; còn lại fallback về data
+  const [zoom, setZoom] = useState(1) // tỉ lệ phóng xem trước (1 = 100%)
+  const [zoomText, setZoomText] = useState('100') // text trong ô % (cho phép gõ)
   const iframeRef = useRef(null)
 
   // paged.js báo tổng chiều cao mọi trang -> fit iframe để cuộn xem hết.
@@ -176,12 +241,24 @@ export default function PrintModal({
     return () => window.removeEventListener('message', onMsg)
   }, [])
 
+  // Đồng bộ ô % khi zoom đổi từ nút +/− hoặc thanh kéo; commit khi gõ xong (Enter/blur).
+  useEffect(() => { setZoomText(String(Math.round(zoom * 100))) }, [zoom])
+  const commitZoomText = () => {
+    const n = parseInt(zoomText, 10)
+    if (Number.isNaN(n)) { setZoomText(String(Math.round(zoom * 100))); return }
+    setZoom(clampZoom(n / 100))
+  }
+
   const valueOf = (key) => (edits[key] !== undefined ? edits[key] : (data?.[key] ?? ''))
   const setField = (key, v) => setEdits((p) => ({ ...p, [key]: v }))
 
-  // Gộp sửa (edits) đè lên data rồi fill token. data có thể chứa cả chuỗi HTML danh sách.
+  // Gộp sửa (edits) đè lên data rồi fill. data có thể chứa mảng cho [data-list].
   const fillData = useMemo(() => ({ ...(data || {}), ...edits }), [data, edits])
-  const filledHtml = useMemo(() => (templateHtml ? fillTokens(templateHtml, fillData) : ''), [templateHtml, fillData])
+  // 1) expandLists: nhân bản dòng theo data-list ([[field]]); 2) fillTokens: token {{...}} body.
+  const filledHtml = useMemo(
+    () => (templateHtml ? fillTokens(expandLists(templateHtml, fillData), fillData) : ''),
+    [templateHtml, fillData],
+  )
 
   // Dựng tài liệu iframe qua BLOB URL (debounce để sửa field không chạy lại paged.js mỗi phím gõ).
   useEffect(() => {
@@ -208,24 +285,60 @@ export default function PrintModal({
       <div className="h-11 shrink-0 flex items-center justify-between px-4 bg-gray-900 text-gray-100">
         <span className="text-sm font-semibold">{title}</span>
         {onClose && (
-          <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng">✕</button>
+          <button onClick={onClose} className="text-gray-300 hover:text-white text-lg leading-none" aria-label="Đóng"><Icon name="x" size={18} /></button>
         )}
       </div>
 
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 overflow-auto">
-          {blobUrl ? (
-            <iframe
-              ref={iframeRef}
-              title="preview"
-              src={blobUrl}
-              scrolling="no"
-              className="block w-full"
-              style={{ height: `${previewHeight}px`, border: 'none' }}
-            />
-          ) : (
-            <div className="text-gray-300 mt-10 text-center">{placeholder}</div>
+        {/* Cột xem trước: thanh zoom (trên) đẩy trang in xuống; vùng cuộn (dưới) chứa trang in */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {blobUrl && (
+            <div className="shrink-0 flex items-center justify-center gap-2 py-1.5 bg-gray-800 border-b border-gray-700 text-gray-100" title="Phóng to / thu nhỏ bản xem trước">
+              <button onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} className={ZOOM_BTN} aria-label="Thu nhỏ">−</button>
+              <input
+                type="range" min={ZOOM_MIN * 100} max={ZOOM_MAX * 100} step={ZOOM_STEP * 100}
+                value={Math.round(zoom * 100)}
+                onChange={(e) => setZoom(clampZoom(Number(e.target.value) / 100))}
+                className="w-40 accent-blue-500 cursor-pointer"
+              />
+              <button onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} className={ZOOM_BTN} aria-label="Phóng to">+</button>
+              <span className="inline-flex items-center gap-0.5 text-gray-300">
+                <input
+                  type="text" inputMode="numeric" value={zoomText}
+                  onChange={(e) => setZoomText(e.target.value.replace(/[^\d]/g, ''))}
+                  onBlur={commitZoomText}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  className="w-10 bg-gray-700 rounded text-xs text-right px-1 py-0.5 tabular-nums text-gray-100 outline-none focus:ring-1 focus:ring-blue-500"
+                  title="Nhập % rồi Enter" aria-label="Tỉ lệ phóng (%)"
+                />
+                <span className="text-xs">%</span>
+              </span>
+            </div>
           )}
+          {/* Nền vùng cuộn = đúng màu nền iframe (#3f3f46) để không lộ khung xám quanh trang */}
+          <div className="flex-1 min-h-0 overflow-auto" style={{ background: '#3f3f46' }}>
+            {blobUrl ? (
+              // Wrapper chiếm đúng kích thước ĐÃ scale để cuộn đúng; iframe scale từ góc trên-trái.
+              <div style={{ width: `${A4_PX * zoom}px`, height: `${previewHeight * zoom}px`, margin: '0 auto' }}>
+                <iframe
+                  ref={iframeRef}
+                  title="preview"
+                  src={blobUrl}
+                  scrolling="no"
+                  style={{
+                    width: `${A4_PX}px`,
+                    height: `${previewHeight}px`,
+                    border: 'none',
+                    display: 'block',
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'top left',
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-gray-300 mt-10 text-center">{placeholder}</div>
+            )}
+          </div>
         </div>
 
         {hasPanel && (

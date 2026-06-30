@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { getPaginatedImagingResultTemplates } from '@/api'
+import { Icon } from '@/design-system/icons'
 
 // 5 loại chụp hệ thống (khi ca đọc không có modality).
 const ALL_MODALITIES = ['CT', 'MR', 'US', 'CR', 'MG']
@@ -43,11 +44,11 @@ export default function TemplatePickerModal({ caModality, caBodyParts, onPick, o
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 p-4">
       {/* Không đóng khi click nền (tránh mất thao tác); chỉ đóng bằng nút ✕. */}
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <h2 className="text-sm font-semibold text-gray-800">Chọn mẫu phiếu</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 px-1" aria-label="Đóng">
-            ✕
+            <Icon name="x" size={18} />
           </button>
         </div>
 
@@ -88,17 +89,20 @@ export default function TemplatePickerModal({ caModality, caBodyParts, onPick, o
             <div className="py-10 text-center text-gray-400 text-sm">Không có mẫu phù hợp</div>
           ) : (
             <div className="grid grid-cols-2 gap-px bg-gray-100 border border-gray-100 rounded-lg overflow-hidden">
-              {items.map((t) => (
-                <button
-                  key={t.uuid}
-                  onDoubleClick={() => onPick(t.uuid)}
-                  title="Nhấp đúp để tải mẫu vào form kết quả"
-                  className="text-left bg-white hover:bg-blue-50 px-3 py-2.5 text-sm text-gray-700 truncate"
-                >
-                  {t.displayOrder != null && <span className="text-gray-400">{t.displayOrder}. </span>}
-                  {t.name}
-                </button>
-              ))}
+              {items.map((t) => {
+                const fullName = `${t.displayOrder != null ? `${t.displayOrder}. ` : ''}${t.name}`
+                return (
+                  <button
+                    key={t.uuid}
+                    onDoubleClick={() => onPick(t.uuid)}
+                    title={`${fullName}\n(Nhấp đúp để tải mẫu vào form kết quả)`}
+                    className="text-left bg-white hover:bg-blue-50 px-3 py-2.5 text-sm text-gray-700 truncate"
+                  >
+                    {t.displayOrder != null && <span className="text-gray-400">{t.displayOrder}. </span>}
+                    {t.name}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>

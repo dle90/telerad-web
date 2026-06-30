@@ -61,6 +61,7 @@ export default function PartnerConfigModal({ partner, onClose, onSaved }) {
       subtitle={partner.name}
       onClose={onClose}
       busy={saving}
+      dismissible={false}
       footer={
         <>
           <button

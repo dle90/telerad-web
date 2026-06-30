@@ -5,23 +5,24 @@ import {
   cancelReadingOrderLock,
   saveReadingOrderResult,
   approveReadingOrder,
+  returnReadingOrderResult,
   getImagingResultTemplate,
 } from '@/api'
 import { formatDateTime } from '@/lib/timezone'
 import { notifySuccess, notifyError } from '@/lib/toast'
-import { confirmDialog } from '@/lib/confirm'
 import { statusMeta } from './constants'
 import { useReadingOrderDetail } from './hooks'
 import TemplatePickerModal from './TemplatePickerModal'
 import PrintResultModal from './PrintResultModal'
+import { Icon } from '@/design-system/icons'
 
 // Thanh công cụ tĩnh (luôn hiện). "Xem ảnh" có logic; các nút còn lại gắn sau.
 const TOOLBAR = [
-  { key: 'viewImage', label: 'Xem ảnh', icon: '👁️' },
-  { key: 'print', label: 'In kết quả', icon: '🖨️' },
-  { key: 'video', label: 'Xem - Tải Video', icon: '🎞️' },
-  { key: 'attachment', label: 'Tải tệp đính kèm', icon: '📎' },
-  { key: 'portal', label: 'In Tra cứu Portal', icon: '🖨️' },
+  { key: 'viewImage', label: 'Xem ảnh', icon: 'eye' },
+  { key: 'print', label: 'In kết quả', icon: 'print' },
+  { key: 'video', label: 'Xem - Tải Video', icon: 'scan' },
+  { key: 'attachment', label: 'Tải tệp đính kèm', icon: 'link' },
+  { key: 'portal', label: 'In Tra cứu Portal', icon: 'print' },
 ]
 
 const genderLabel = (g) => {
@@ -136,34 +137,27 @@ export default function CaseDetailTab({ uuid }) {
     }
   }
 
-  // Kết thúc & Duyệt: hỏi có lưu nội dung đang soạn trước không. Có -> lưu (yêu cầu có nội
-  // dung) rồi duyệt; Không -> duyệt thẳng (server kiểm tra result_in_html != rỗng).
+  // Kết thúc & Duyệt: bắt buộc có nội dung kết quả (giống "Lưu kết quả"), rồi gọi 1 API
+  // end-reading-and-approve — BE tự lưu html + duyệt + trả kết quả sang đối tác (nếu bật
+  // callback). Trả về { readingOrder, resultReturnFailed }: resultReturnFailed=true nghĩa là
+  // đã duyệt OK nhưng trả KQ thất bại (ca vẫn APPROVED, có thể bấm "Trả KQ" gửi lại).
   const doApprove = async () => {
     if (busy) return
-    // true = lưu rồi duyệt; false = duyệt không lưu; null = đóng (X/Esc/backdrop) -> ngắt hẳn.
-    const choice = await confirmDialog({
-      title: 'Kết thúc & Duyệt',
-      message: 'Bạn có cần lưu nội dung đang soạn thảo trước khi duyệt?',
-      confirmLabel: 'Lưu rồi duyệt',
-      cancelLabel: 'Duyệt, không lưu',
-    })
-    if (choice === null) return
+    if (!editorHasContent()) {
+      notifyError('Chưa có nội dung kết quả để duyệt')
+      return
+    }
     setBusy(true)
     try {
-      if (choice === true) {
-        if (!editorHasContent()) {
-          notifyError('Chưa có nội dung kết quả để lưu')
-          return
+      const html = resultRef.current ? resultRef.current.innerHTML : ''
+      const res = await approveReadingOrder(uuid, html)
+      if (res?.readingOrder) {
+        setDetail(res.readingOrder)
+        if (res.resultReturnFailed) {
+          notifyError('Duyệt ca thành công nhưng trả kết quả về đối tác thất bại')
+        } else {
+          notifySuccess('Duyệt ca thành công')
         }
-        const html = resultRef.current ? resultRef.current.innerHTML : ''
-        const saved = await saveReadingOrderResult(uuid, html)
-        if (!saved) return // lưu lỗi -> dừng, không duyệt
-        setDetail(saved)
-      }
-      const updated = await approveReadingOrder(uuid)
-      if (updated) {
-        setDetail(updated)
-        notifySuccess('Duyệt ca thành công')
       }
     } catch {
       // toast lỗi đã hiển thị
@@ -188,20 +182,21 @@ export default function CaseDetailTab({ uuid }) {
     }
   }
 
-  // Hàm chung quyết định CÁC nút hành động theo trạng thái ca:
-  //  - UNREAD            -> Nhận ca
-  //  - READING & của mình -> Hủy khóa + Chọn mẫu phiếu
+  // Hàm chung quyết định CÁC nút hành động (bên TRÁI toolbar) theo trạng thái ca:
+  //  - UNREAD             -> Nhận ca
+  //  - READING & của mình  -> Hủy khóa + Chọn mẫu phiếu + Lưu + Duyệt
+  // (Nút "Trả KQ" — APPROVED & của mình & chưa trả — render riêng, đẩy ngoài cùng bên phải.)
   const actionButtonsFor = (d) => {
     if (!d) return []
     if (d.status === 'UNREAD') {
-      return [{ key: 'receive', label: 'Nhận ca', icon: '🔒', run: doReceive }]
+      return [{ key: 'receive', label: 'Nhận ca', icon: 'lock', run: doReceive }]
     }
     if (d.status === 'READING' && d.assignedToMe) {
       return [
-        { key: 'cancelLock', label: 'Hủy khóa', icon: '🔓', run: () => runAction(cancelReadingOrderLock, 'Hủy ca thành công') },
-        { key: 'pickTemplate', label: 'Chọn mẫu phiếu', icon: '📋', run: () => setTemplateModalOpen(true) },
-        { key: 'saveResult', label: 'Lưu kết quả', icon: '💾', run: doSaveResult },
-        { key: 'approve', label: 'Kết thúc & Duyệt', icon: '✅', run: doApprove },
+        { key: 'cancelLock', label: 'Hủy khóa', icon: 'unlock', run: () => runAction(cancelReadingOrderLock, 'Hủy ca thành công') },
+        { key: 'pickTemplate', label: 'Chọn mẫu phiếu', icon: 'clipboard', run: () => setTemplateModalOpen(true) },
+        { key: 'saveResult', label: 'Lưu kết quả', icon: 'save', run: doSaveResult },
+        { key: 'approve', label: 'Kết thúc & Duyệt', icon: 'check-circle', run: doApprove },
       ]
     }
     return []
@@ -217,6 +212,8 @@ export default function CaseDetailTab({ uuid }) {
   const s = statusMeta(detail.status)
   const year = birthYear(detail.dateOfBirth)
   const actionBtns = actionButtonsFor(detail)
+  // "Trả KQ" tách riêng -> đẩy ngoài cùng bên phải toolbar (ml-auto).
+  const canReturnResult = detail.status === 'APPROVED' && detail.assignedToMe && !detail.resultReturned
 
   return (
     <div className="flex gap-4 h-full">
@@ -275,7 +272,7 @@ export default function CaseDetailTab({ uuid }) {
               className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-50"
               title={b.label}
             >
-              <span className="text-base leading-none">{b.icon}</span>
+              <span className="leading-none"><Icon name={b.icon} size={16} /></span>
               <span className="whitespace-nowrap">{b.label}</span>
             </button>
           ))}
@@ -286,10 +283,22 @@ export default function CaseDetailTab({ uuid }) {
               className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] text-gray-600 hover:bg-white hover:text-blue-700 hover:shadow-sm transition-colors"
               title={b.label}
             >
-              <span className="text-base leading-none">{b.icon}</span>
+              <span className="leading-none"><Icon name={b.icon} size={16} /></span>
               <span className="whitespace-nowrap">{b.label}</span>
             </button>
           ))}
+          {/* "Trả KQ" — đẩy ngoài cùng bên phải (ml-auto). */}
+          {canReturnResult && (
+            <button
+              onClick={() => runAction(returnReadingOrderResult, 'Trả kết quả thành công')}
+              disabled={busy}
+              className="ml-auto flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-50"
+              title="Trả KQ"
+            >
+              <span className="leading-none"><Icon name="send" size={16} /></span>
+              <span className="whitespace-nowrap">Trả KQ</span>
+            </button>
+          )}
         </div>
 
         {/* Form "Nhập kết quả": chọn mẫu phiếu -> đổ html_content vào đây.

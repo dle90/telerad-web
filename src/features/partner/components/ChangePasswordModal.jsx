@@ -9,6 +9,8 @@ import { inputClsLg } from '@/lib/ui'
 export default function ChangePasswordModal({ partner, onClose, onSaved }) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -37,6 +39,7 @@ export default function ChangePasswordModal({ partner, onClose, onSaved }) {
       onClose={onClose}
       busy={saving}
       size="sm"
+      dismissible={false}
       footer={
         <>
           <button
@@ -60,24 +63,42 @@ export default function ChangePasswordModal({ partner, onClose, onSaved }) {
       <form id="partner-change-password-form" onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Mật khẩu mới</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClsLg}
-            required
-            autoFocus
-          />
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`${inputClsLg} pr-14`}
+              required
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((v) => !v)}
+              className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-blue-600 hover:text-blue-700"
+            >
+              {showPw ? 'Ẩn' : 'Hiện'}
+            </button>
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className={inputClsLg}
-            required
-          />
+          <div className="relative">
+            <input
+              type={showConfirm ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={`${inputClsLg} pr-14`}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((v) => !v)}
+              className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-blue-600 hover:text-blue-700"
+            >
+              {showConfirm ? 'Ẩn' : 'Hiện'}
+            </button>
+          </div>
         </div>
         {error && (
           <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
