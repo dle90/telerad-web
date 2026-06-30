@@ -9,6 +9,11 @@ Code liên quan:
 - Backend lắp data: [telerad-core mapper `ToStaffGetReadingOrderResultSheetResponse`](../../telerad-core/internals/object-mappers/telerad-reading-order-controller-responses_mapper.go).
 - Polyfill: [public/vendor/paged.polyfill.js](../public/vendor/paged.polyfill.js).
 
+> ⚠️ Thư viện in **`PrintModal.jsx` + `public/vendor/paged.polyfill.js` ĐỒNG BỘ 1-1 với his-web** (file giống hệt).
+> Sửa máy in (paged.js, data-list, multi-page, zoom…) ở một bên → **copy sang bên kia**. his-web có guide
+> song song `his-web/docs/mau-phieu-in.md`. Các tính năng mới (data-list, lặp thead/colgroup khi tràn trang,
+> zoom xem trước) đã có ở §7, §10, §11.
+
 ---
 
 ## 1. Tổng quan
@@ -63,10 +68,10 @@ nếu lệch → rơi về số mặc định (xem mục Fallback) và có thể
   </style>
 </head>
 <body>
-  <div class="page-header"> ...logo, tên cơ sở, địa chỉ... </div>   <!-- lặp mỗi trang -->
+  <div class="page-header"> ...header LẶP: text/căn giữa đơn giản — bảng ≥3 cột để xuống .page-body, xem §7... </div>
   <div class="page-footer"> ...chữ ký, ngày, bác sĩ...      </div>   <!-- lặp mỗi trang -->
   <div class="page-body">
-    ...thông tin bệnh nhân (hiện 1 lần)...
+    ...letterhead ≥3 cột (logo·tên·địa chỉ) đặt Ở ĐÂY nếu cần (xem §7); thông tin bệnh nhân (hiện 1 lần)...
     <div data-region="result-content"
          style="font-size: {{resultFontSize}}pt; line-height: {{resultLineSpacing}}; white-space: pre-wrap;">{{resultContent}}</div>
   </div>
@@ -173,6 +178,21 @@ lấy từ đâu. Frontend không format lại — backend đã format sẵn (xe
 - Đổi tên class (không phải `page-header/footer/body`) → paged.js **không nhận** header/footer → mất lặp / sai layout.
 - CSS viết quá lạ (regex `@page` không bắt được) → rơi về fallback, lề có thể sai.
 - Header thực tế **cao hơn** `padding-top` → nội dung trang 1 dính vào header. Tăng `padding-top`.
+- ⚠️ **Header lặp (`.page-header`) bị "render đôi" / chồng chữ**: paged.js dựng header trong @top-center
+  **margin-box** — chỉ chịu bố cục ĐƠN GIẢN (text 1 dòng / div text căn giữa / `<table>` ≤ 2 ô). TUYỆT ĐỐI
+  tránh trong header lặp: `<table>` **≥3 cột/ô**, `display:flex`, `display:inline-block`, `colgroup`,
+  `table-layout:fixed`, hoặc nhiều phần tử block anh em — đều khiến header bị nhân đôi. (Header phiếu kết quả
+  dùng vài dòng text căn giữa nên KHÔNG sao.)
+- ✅ **Letterhead nhiều cột (logo · tên · địa chỉ — ≥3 cột) → ĐẶT TRONG `.page-body`** (phần tử đầu tiên),
+  KHÔNG để ở `.page-header`. Trong luồng thường (body) thì bảng ≥3 cột / `colgroup` / `table-layout:fixed`
+  render bình thường, không nhân đôi. Lặp tiêu đề trang 2+ thì để `.page-header` **1 dòng text**.
+- ✅ **Bảng tràn nhiều trang**: paged.js KHÔNG tự lặp `<thead>`/`<colgroup>` cho mảnh bảng ở trang sau
+  (mất tiêu đề cột + loạn `table-layout:fixed`). PrintModal đã tự xử lý (`pgFixSplitTables` trong
+  `PagedConfig.after`): clone `<thead>`+`<colgroup>` từ mảnh gốc sang mảnh sau cùng số cột. → Template chỉ
+  cần dùng `<thead>` + `<colgroup>` chuẩn, không cần làm gì thêm.
+- **Preview harness nhân đôi**: nếu render bằng harness paged.js để soi nhanh, phải gọi
+  `PagedPolyfill.preview()` **đúng 1 lần** (auto:false) và render trong **iframe** — gọi 2 lần / render
+  top-level cũng gây nhân đôi header (artifact của harness, không phải lỗi mẫu).
 
 ---
 
@@ -239,32 +259,40 @@ lấy từ đâu. Frontend không format lại — backend đã format sẵn (xe
 
 ## 10. Phiếu có DANH SÁCH — phiếu chỉ định, phiếu thu tiền…
 
-`PrintModal` không có khái niệm "danh sách" — mọi thứ động đều là **token trong `data`**. Với bảng nhiều dòng,
-**BACKEND dựng sẵn HTML các dòng** rồi trả vào một field của `data` (vd `rows`); template để token đó ở chỗ cần.
-Giá trị token có thể là **chuỗi HTML** (chèn nguyên văn).
+Danh sách **KHAI BÁO ngay trong template** — `PrintModal` tự nhân bản dòng theo dữ liệu, **KHÔNG** để
+backend dựng HTML nữa:
+
+- `<table data-list="<listName>">` — `listName` = tên mảng trong `data` (`data[listName]` = **MẢNG object**).
+- Trong `<tbody>` để **đúng 1 `<tr>` mẫu**; mỗi ô dùng **`{{$field}}`** = field của TỪNG phần tử mảng
+  (tiền tố `$` để phân biệt với `{{...}}` = field body/toàn phiếu). PrintModal **tự escape** `< & "`.
+- `data[listName]` chưa phải mảng (vd preview chưa có dữ liệu) → **giữ nguyên dòng mẫu** (hiện `{{$field}}`).
 
 Template:
 ```html
-<table>
+<table class="svc" data-list="rows">
+  <colgroup>...</colgroup>
   <thead><tr><th>STT</th><th>Dịch vụ</th><th>SL</th><th>Thành tiền</th></tr></thead>
-  <tbody>{{rows}}</tbody>
+  <tbody>
+    <tr><td>{{$stt}}</td><td>{{$name}}</td><td>{{$qty}}</td><td>{{$amount}}</td></tr>
+  </tbody>
 </table>
 <div>Tổng cộng: {{total}}</div>
 ```
 
-Backend trả `data` (Go, ví dụ):
+Backend chỉ trả `data` dạng **mảng object** (Go, ví dụ):
 ```go
-var b strings.Builder
+rows := make([]map[string]any, 0, len(services))
 for i, s := range services {
-    fmt.Fprintf(&b, "<tr><td>%d</td><td>%s</td><td>%d</td><td>%s</td></tr>", i+1, s.Name, s.Qty, s.Amount)
+    rows = append(rows, map[string]any{"stt": i + 1, "name": s.Name, "qty": s.Qty, "amount": s.Amount})
 }
-data := map[string]string{ "rows": b.String(), "total": "270.000", "patientName": "..." }
+data := map[string]any{ "rows": rows, "total": "270.000", "patientName": "..." }
 // -> response { htmlContent, data }
 ```
 
-Frontend: chỉ `data={resp.data}` (xem mục 11). Lưu ý:
-- Token HTML chèn **nguyên văn** → backend tự escape nếu dữ liệu có thể chứa `<`, `&`, `"`.
-- Giữ nguyên triết lý: **mọi giá trị động (kể cả danh sách) nằm trong `data` do backend lắp** — frontend không map/dựng gì.
+Lưu ý:
+- **KHÔNG dựng HTML, KHÔNG tự escape** ở backend — PrintModal lo. Đổi cột chỉ sửa template, không đụng backend.
+- `data-list` đặt trên phần tử KHÔNG phải `<table>` cũng được: `<div data-list="x"><span>{{$y}}</span></div>` → lặp con của host.
+- Bảng tràn nhiều trang: `<thead>`/`<colgroup>` tự lặp (xem §7).
 
 ---
 
@@ -276,7 +304,7 @@ Mọi phiếu in mới **dùng lại** [components/PrintModal.jsx](../src/compon
 |---|---|---|
 | `title` | string | Tiêu đề thanh trên |
 | `templateHtml` | string | HTML mẫu phiếu (mục 2) — thường lấy từ DB |
-| `data` | object | Map token `{{key}}` (do backend trả, key = tên token). Danh sách = 1 field HTML do backend dựng (mục 10) |
+| `data` | object | Map token `{{key}}` (do backend trả, key = tên token). Danh sách = field **MẢNG object** cho `data-list` (mục 10) |
 | `fields` | array | **Khai báo vùng "Thông tin"** (panel sửa nhanh) — THAY ĐỔI THEO TỪNG PHIẾU. Bỏ trống/`null` → không có panel. Xem dưới |
 | `infoTitle` | string | Tiêu đề panel (mặc định "Thông tin") |
 | `aside` | node | (Escape hatch) panel tự dựng khi quá đặc thù, `fields` không tả nổi. Có `fields` thì `fields` ưu tiên |
@@ -309,6 +337,9 @@ const FIELDS = [
 | `group` | gom `fields` con xếp 2 cột |
 
 Phiếu **không cần sửa gì** → không truyền `fields` (hoặc `[]`): modal chỉ có preview + nút In/Đóng nổi.
+
+**Zoom xem trước:** thanh ngay TRÊN trang in (không ở header modal) gồm nút −/+, thanh kéo % và **ô % gõ được**
+(Enter/blur áp dụng, tự kẹp 50–200%). Chỉ phóng to/thu nhỏ bản xem trước (CSS `transform`), KHÔNG ảnh hưởng bản in thật.
 
 ### Mẫu tích hợp phiếu mới (backend đã trả `{ htmlContent, data }`)
 ```jsx

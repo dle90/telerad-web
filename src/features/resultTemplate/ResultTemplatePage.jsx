@@ -286,11 +286,15 @@ function ResultTemplateDetailPanel({ template, onClose, onEdit }) {
       <FieldRow label="Trạng thái">{template.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
       <div className="pt-3">
         <div className="text-xs font-medium text-gray-500 pb-1">Nội dung mẫu</div>
-        {/* transform → containing-block giữ position:fixed của HTML mẫu trong khung */}
-        <div
-          className="relative border border-gray-200 rounded-lg p-3 text-sm overflow-auto max-h-[45vh] bg-gray-50"
-          style={{ transform: 'translateZ(0)' }}
-          dangerouslySetInnerHTML={{ __html: template.htmlContent || '' }}
+        {/* IFRAME (srcDoc) để CÁCH LY style — htmlContent có thể là full HTML kèm <style>
+            toàn cục (body{font-family…}, *{…}); nhúng thẳng bằng dangerouslySetInnerHTML thì
+            <style> áp ra CẢ trang → đổi font/nền phía sau. iframe là document riêng nên không
+            rò rỉ. (Xem giải thích đầy đủ ở ResultSheetTemplatePage.) sandbox="" chặn script. */}
+        <iframe
+          title="Xem trước nội dung mẫu"
+          srcDoc={template.htmlContent || ''}
+          sandbox=""
+          className="w-full h-[45vh] border border-gray-200 rounded-lg bg-white"
         />
       </div>
     </Modal>

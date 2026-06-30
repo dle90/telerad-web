@@ -5,11 +5,11 @@ import {
   cancelReadingOrderLock,
   saveReadingOrderResult,
   approveReadingOrder,
+  returnReadingOrderResult,
   getImagingResultTemplate,
 } from '@/api'
 import { formatDateTime } from '@/lib/timezone'
 import { notifySuccess, notifyError } from '@/lib/toast'
-import { confirmDialog } from '@/lib/confirm'
 import { statusMeta } from './constants'
 import { useReadingOrderDetail } from './hooks'
 import TemplatePickerModal from './TemplatePickerModal'
@@ -137,34 +137,27 @@ export default function CaseDetailTab({ uuid }) {
     }
   }
 
-  // Kết thúc & Duyệt: hỏi có lưu nội dung đang soạn trước không. Có -> lưu (yêu cầu có nội
-  // dung) rồi duyệt; Không -> duyệt thẳng (server kiểm tra result_in_html != rỗng).
+  // Kết thúc & Duyệt: bắt buộc có nội dung kết quả (giống "Lưu kết quả"), rồi gọi 1 API
+  // end-reading-and-approve — BE tự lưu html + duyệt + trả kết quả sang đối tác (nếu bật
+  // callback). Trả về { readingOrder, resultReturnFailed }: resultReturnFailed=true nghĩa là
+  // đã duyệt OK nhưng trả KQ thất bại (ca vẫn APPROVED, có thể bấm "Trả KQ" gửi lại).
   const doApprove = async () => {
     if (busy) return
-    // true = lưu rồi duyệt; false = duyệt không lưu; null = đóng (X/Esc/backdrop) -> ngắt hẳn.
-    const choice = await confirmDialog({
-      title: 'Kết thúc & Duyệt',
-      message: 'Bạn có cần lưu nội dung đang soạn thảo trước khi duyệt?',
-      confirmLabel: 'Lưu rồi duyệt',
-      cancelLabel: 'Duyệt, không lưu',
-    })
-    if (choice === null) return
+    if (!editorHasContent()) {
+      notifyError('Chưa có nội dung kết quả để duyệt')
+      return
+    }
     setBusy(true)
     try {
-      if (choice === true) {
-        if (!editorHasContent()) {
-          notifyError('Chưa có nội dung kết quả để lưu')
-          return
+      const html = resultRef.current ? resultRef.current.innerHTML : ''
+      const res = await approveReadingOrder(uuid, html)
+      if (res?.readingOrder) {
+        setDetail(res.readingOrder)
+        if (res.resultReturnFailed) {
+          notifyError('Duyệt ca thành công nhưng trả kết quả về đối tác thất bại')
+        } else {
+          notifySuccess('Duyệt ca thành công')
         }
-        const html = resultRef.current ? resultRef.current.innerHTML : ''
-        const saved = await saveReadingOrderResult(uuid, html)
-        if (!saved) return // lưu lỗi -> dừng, không duyệt
-        setDetail(saved)
-      }
-      const updated = await approveReadingOrder(uuid)
-      if (updated) {
-        setDetail(updated)
-        notifySuccess('Duyệt ca thành công')
       }
     } catch {
       // toast lỗi đã hiển thị
@@ -189,9 +182,10 @@ export default function CaseDetailTab({ uuid }) {
     }
   }
 
-  // Hàm chung quyết định CÁC nút hành động theo trạng thái ca:
-  //  - UNREAD            -> Nhận ca
-  //  - READING & của mình -> Hủy khóa + Chọn mẫu phiếu
+  // Hàm chung quyết định CÁC nút hành động (bên TRÁI toolbar) theo trạng thái ca:
+  //  - UNREAD             -> Nhận ca
+  //  - READING & của mình  -> Hủy khóa + Chọn mẫu phiếu + Lưu + Duyệt
+  // (Nút "Trả KQ" — APPROVED & của mình & chưa trả — render riêng, đẩy ngoài cùng bên phải.)
   const actionButtonsFor = (d) => {
     if (!d) return []
     if (d.status === 'UNREAD') {
@@ -218,6 +212,8 @@ export default function CaseDetailTab({ uuid }) {
   const s = statusMeta(detail.status)
   const year = birthYear(detail.dateOfBirth)
   const actionBtns = actionButtonsFor(detail)
+  // "Trả KQ" tách riêng -> đẩy ngoài cùng bên phải toolbar (ml-auto).
+  const canReturnResult = detail.status === 'APPROVED' && detail.assignedToMe && !detail.resultReturned
 
   return (
     <div className="flex gap-4 h-full">
@@ -291,6 +287,18 @@ export default function CaseDetailTab({ uuid }) {
               <span className="whitespace-nowrap">{b.label}</span>
             </button>
           ))}
+          {/* "Trả KQ" — đẩy ngoài cùng bên phải (ml-auto). */}
+          {canReturnResult && (
+            <button
+              onClick={() => runAction(returnReadingOrderResult, 'Trả kết quả thành công')}
+              disabled={busy}
+              className="ml-auto flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 hover:bg-white hover:shadow-sm transition-colors disabled:opacity-50"
+              title="Trả KQ"
+            >
+              <span className="leading-none"><Icon name="send" size={16} /></span>
+              <span className="whitespace-nowrap">Trả KQ</span>
+            </button>
+          )}
         </div>
 
         {/* Form "Nhập kết quả": chọn mẫu phiếu -> đổ html_content vào đây.

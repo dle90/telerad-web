@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { formatDateTime } from '@/lib/timezone'
 import DateField from '@/components/DateField'
-import { useSelectedPartner } from '@/context/SelectedPartnerContext'
 import { useReadingPartners, useReadingOrders } from './hooks'
 import { statusMeta, READING_STATUS_OPTIONS, RESULT_RETURNED_OPTIONS } from './constants'
 import CaseDetailTab from './CaseDetailTab'
@@ -13,23 +12,26 @@ export default function ReadingPage() {
   const { groups, loading: treeLoading } = useReadingPartners()
   const list = useReadingOrders()
 
-  // Đồng bộ bộ lọc theo "chi nhánh" (đối tác) chọn trên topbar: đổi đối tác trên
-  // PartnerSwitcher → lọc toàn bộ danh sách ca theo đối tác đó. Cây trái vẫn
-  // dùng để chọn theo modality/đối tác cụ thể (ghi đè cục bộ).
-  const { partner } = useSelectedPartner()
-  useEffect(() => {
-    list.setFilters({ teleradPartnerUuid: partner?.uuid || '', modality: '' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partner])
-
-  // Cây "Đối tác tích hợp" bên trái cũng lọc theo đối tác chọn trên topbar: chỉ
-  // hiện chi nhánh đang chọn (ẩn nhóm modality không có chi nhánh đó). null = tất cả.
-  const visibleGroups = useMemo(() => {
-    if (!partner?.uuid) return groups
-    return groups
-      .map((g) => ({ ...g, partners: (g.partners || []).filter((p) => p.uuid === partner.uuid) }))
-      .filter((g) => g.partners.length > 0)
-  }, [groups, partner])
+  // Cây trái group theo CƠ SỞ Y TẾ (đối tác). Endpoint trả [{ modality, partners }]
+  // nên đảo lại thành [{ uuid, code, name, modalities[] }]: mỗi cơ sở 1 nhóm, mở
+  // ra là các modality của cơ sở đó.
+  const facilities = useMemo(() => {
+    const map = new Map()
+    for (const g of groups) {
+      for (const p of g.partners || []) {
+        let f = map.get(p.uuid)
+        if (!f) {
+          f = { uuid: p.uuid, code: p.code, name: p.name, modalities: [] }
+          map.set(p.uuid, f)
+        }
+        if (g.modality && !f.modalities.includes(g.modality)) f.modalities.push(g.modality)
+      }
+    }
+    const arr = Array.from(map.values())
+    arr.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'))
+    for (const f of arr) f.modalities.sort((a, b) => a.localeCompare(b))
+    return arr
+  }, [groups])
 
   // Tab chi tiết đang mở: [{ uuid, label }]. active = 'list' hoặc uuid 1 tab chi tiết.
   const [tabs, setTabs] = useState([])
@@ -51,7 +53,7 @@ export default function ReadingPage() {
       <div className="flex-1 min-h-0 mt-3">
         {/* Tab danh sách: luôn mount, chỉ ẩn khi không active để giữ bộ lọc + vị trí cuộn. */}
         <div className={`h-full ${active === 'list' ? '' : 'hidden'}`}>
-          <CaseListTab groups={visibleGroups} treeLoading={treeLoading} list={list} openDetail={openDetail} />
+          <CaseListTab facilities={facilities} treeLoading={treeLoading} list={list} openDetail={openDetail} />
         </div>
         {/* Mỗi tab chi tiết giữ nguyên trạng thái khi chuyển qua lại. */}
         {tabs.map((t) => (
@@ -103,10 +105,10 @@ function TabBar({ tabs, active, setActive, closeDetail }) {
 
 // ─── Tab danh sách ca (worklist) ──────────────────────────────────────────────
 
-function CaseListTab({ groups, treeLoading, list, openDetail }) {
+function CaseListTab({ facilities, treeLoading, list, openDetail }) {
   return (
     <div className="flex gap-4 h-full">
-      <PartnerTree groups={groups} loading={treeLoading} filters={list.filters} setFilters={list.setFilters} />
+      <FacilityTree facilities={facilities} loading={treeLoading} filters={list.filters} setFilters={list.setFilters} />
       <div className="flex-1 min-w-0 space-y-4">
         <FilterBar list={list} />
         <WorklistTable list={list} openDetail={openDetail} />
@@ -115,22 +117,34 @@ function CaseListTab({ groups, treeLoading, list, openDetail }) {
   )
 }
 
-// ─── Cây đối tác theo loại chụp ───────────────────────────────────────────────
+// ─── Cây cơ sở y tế (đối tác) → modality ──────────────────────────────────────
 
-// Cây trái = danh sách LOẠI MÁY (modality). Chi nhánh (đối tác) chọn trên topbar
-// nên ở đây KHÔNG hiện chi nhánh con; click loại máy chỉ lọc theo modality, GIỮ
-// đối tác đang chọn (teleradPartnerUuid do PartnerSwitcher topbar quản lý).
-function PartnerTree({ groups, loading, filters, setFilters }) {
-  const noModality = !filters.modality
+// Mỗi cơ sở y tế là 1 nhóm mở/đóng được; click tên cơ sở → lọc theo đối tác đó
+// (xóa modality); mở ra click 1 modality → lọc đối tác + modality. "Toàn bộ" xóa
+// cả hai. Không có header.
+function FacilityTree({ facilities, loading, filters, setFilters }) {
+  const [expanded, setExpanded] = useState(() => new Set())
+  const toggle = (uuid) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(uuid)) next.delete(uuid)
+      else next.add(uuid)
+      return next
+    })
+  const selectFacility = (uuid) => {
+    setFilters({ teleradPartnerUuid: uuid, modality: '' })
+    setExpanded((prev) => new Set(prev).add(uuid)) // chọn cơ sở thì mở luôn
+  }
+
+  const allActive = !filters.teleradPartnerUuid && !filters.modality
 
   return (
     <aside className="w-64 shrink-0 bg-white border border-neutral-200 rounded-xl overflow-y-auto">
-      <div className="px-4 py-3 border-b border-neutral-100 t-strong tc-1">Loại máy</div>
       <div className="py-2">
         <button
-          onClick={() => setFilters({ modality: '' })}
+          onClick={() => setFilters({ teleradPartnerUuid: '', modality: '' })}
           className={`w-full text-left px-4 py-2 text-sm font-medium ${
-            noModality ? 'bg-primary-50 text-primary-700' : 'tc-2 hover:bg-neutral-50'
+            allActive ? 'bg-primary-50 text-primary-700' : 'tc-2 hover:bg-neutral-50'
           }`}
         >
           Toàn bộ
@@ -138,21 +152,54 @@ function PartnerTree({ groups, loading, filters, setFilters }) {
 
         {loading ? (
           <div className="px-4 py-3 text-sm tc-4">Đang tải…</div>
-        ) : groups.length === 0 ? (
-          <div className="px-4 py-3 text-sm tc-4">Chưa có loại máy nào.</div>
+        ) : facilities.length === 0 ? (
+          <div className="px-4 py-3 text-sm tc-4">Chưa có cơ sở y tế nào.</div>
         ) : (
-          groups.map((g) => {
-            const active = filters.modality === g.modality
+          facilities.map((f) => {
+            const isOpen = expanded.has(f.uuid)
+            const facilitySelected = filters.teleradPartnerUuid === f.uuid
+            const facilityActive = facilitySelected && !filters.modality
             return (
-              <button
-                key={g.modality}
-                onClick={() => setFilters({ modality: g.modality })}
-                className={`w-full text-left px-4 py-2 text-sm ${
-                  active ? 'bg-primary-50 text-primary-700 font-medium' : 'tc-2 hover:bg-neutral-50'
-                }`}
-              >
-                {g.modality}
-              </button>
+              <div key={f.uuid}>
+                <div className={`flex items-center ${facilityActive ? 'bg-primary-50' : 'hover:bg-neutral-50'}`}>
+                  <button
+                    onClick={() => toggle(f.uuid)}
+                    className="pl-2 pr-1 py-2 text-neutral-400 hover:text-neutral-600 flex-shrink-0"
+                    title={isOpen ? 'Thu gọn' : 'Mở rộng'}
+                    aria-label={isOpen ? 'Thu gọn' : 'Mở rộng'}
+                  >
+                    <Icon name={isOpen ? 'chevron-down' : 'chevron-right'} size={14} />
+                  </button>
+                  <button
+                    onClick={() => selectFacility(f.uuid)}
+                    className={`flex-1 min-w-0 text-left pr-4 py-2 text-sm flex items-center gap-2 ${
+                      facilityActive ? 'text-primary-700 font-medium' : 'tc-2'
+                    }`}
+                  >
+                    <Icon name="hospital" size={15} className="flex-shrink-0 opacity-70" />
+                    <span className="truncate">{f.name}</span>
+                  </button>
+                </div>
+
+                {isOpen && f.modalities.length > 0 && (
+                  <div className="pb-1">
+                    {f.modalities.map((m) => {
+                      const modActive = facilitySelected && filters.modality === m
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => setFilters({ teleradPartnerUuid: f.uuid, modality: m })}
+                          className={`w-full text-left pl-12 pr-4 py-1.5 text-sm ${
+                            modActive ? 'bg-primary-50 text-primary-700 font-medium' : 'tc-3 hover:bg-neutral-50'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })
         )}
@@ -253,7 +300,7 @@ function Field({ label, children }) {
 
 const HEADERS = [
   'STT',
-  'Mã bệnh nhân',
+  'Mã BN',
   'Tên bệnh nhân',
   'Đối tác',
   'Dịch vụ',
@@ -309,8 +356,8 @@ function WorklistTable({ list, openDetail }) {
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{r.patientCode || '—'}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{r.fullName}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.partnerName}</td>
-                    <td className="px-4 py-3 text-gray-700 text-xs">{r.serviceName || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 min-w-[170px]">{r.partnerName}</td>
+                    <td className="px-4 py-3 text-gray-700 text-xs min-w-[240px]">{r.serviceName || '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
                       {formatDateTime(r.performEndedAt, { withSeconds: false }) || '—'}
                     </td>

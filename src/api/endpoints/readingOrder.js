@@ -24,9 +24,20 @@ export const saveReadingOrderResult = (readingOrderUuid, resultInHtml) =>
     body: { resultInHtml },
   })
 
-// Kết thúc & duyệt (READING của mình + có kết quả -> APPROVED). Trả về chi tiết ca.
-export const approveReadingOrder = (readingOrderUuid) =>
-  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/end-reading-and-approve`, { method: 'POST' })
+// Kết thúc & duyệt: lưu nội dung kết quả (html) + duyệt ca (READING của mình -> APPROVED)
+// + (nếu đối tác bật callback) trả kết quả sang đối tác. Trả về { readingOrder, resultReturnFailed }:
+// resultReturnFailed=true nghĩa là đã duyệt OK nhưng trả kết quả về đối tác thất bại.
+export const approveReadingOrder = (readingOrderUuid, resultInHtml) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/end-reading-and-approve`, {
+    method: 'POST',
+    body: { resultInHtml },
+  })
+
+// Trả kết quả ca đã duyệt về đối tác (his-core): đẩy kết quả sang his-core, thành công thì
+// set result_returned. Trả về chi tiết ca sau khi trả (để cập nhật state). Dùng cho nút
+// "Trả KQ" (APPROVED + chưa trả) — cũng là cách gửi lại khi auto-callback lúc duyệt thất bại.
+export const returnReadingOrderResult = (readingOrderUuid) =>
+  apiFetch(`/telerad-core/v1/staff/reading-order/${readingOrderUuid}/actions/return-result`, { method: 'POST' })
 
 // Mẫu phiếu kết quả + dữ liệu in (CÔNG KHAI, không cần đăng nhập): { htmlContent, resultFontSize,
 // resultLineSpacing, data } với data.key = ĐÚNG tên token trên mẫu -> fillTokens thẳng, không map.

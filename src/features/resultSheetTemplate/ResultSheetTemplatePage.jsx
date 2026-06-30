@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
+import PrintModal from '@/components/PrintModal'
 import FieldRow from '@/components/FieldRow'
 import { Icon } from '@/design-system/icons'
 import { inputCls, inputClsTextarea } from '@/lib/ui'
@@ -241,41 +242,67 @@ export default function ResultSheetTemplatePage() {
 }
 
 function ResultSheetDetailPanel({ sheet, onClose, onEdit }) {
+  const [printing, setPrinting] = useState(false)
+
   return (
-    <Modal
-      title={sheet.teleradPartnerName || 'Phiếu kết quả'}
-      subtitle={sheet.teleradPartnerCode}
-      onClose={onClose}
-      size="xl"
-      dismissible={false}
-      footer={
-        <>
-          <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">
-            Đóng
-          </button>
-          <button onClick={onEdit} className="px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Sửa
-          </button>
-        </>
-      }
-    >
-      <FieldRow label="Cơ sở y tế">{sheet.teleradPartnerName || '—'}</FieldRow>
-      <FieldRow label="Mã CSYT">{sheet.teleradPartnerCode || '—'}</FieldRow>
-      <FieldRow label="Cỡ chữ kết quả (pt)">{sheet.resultFontSize ?? '—'}</FieldRow>
-      <FieldRow label="Giãn dòng kết quả">{sheet.resultLineSpacing ?? '—'}</FieldRow>
-      <FieldRow label="Trạng thái">{sheet.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
-      <div className="pt-3">
-        <div className="text-xs font-medium text-gray-500 pb-1">Mẫu phiếu</div>
-        {/* transform tạo containing-block → các phần tử position:fixed trong HTML
-            phiếu (header/footer A4) bị giữ TRONG khung preview, không tràn ra
-            viewport che modal (gây "đơ" không bấm được nút). */}
-        <div
-          className="relative border border-gray-200 rounded-lg p-3 text-sm overflow-auto max-h-[45vh] bg-gray-50"
-          style={{ transform: 'translateZ(0)' }}
-          dangerouslySetInnerHTML={{ __html: sheet.htmlContent || '' }}
+    <>
+      <Modal
+        title={sheet.teleradPartnerName || 'Phiếu kết quả'}
+        subtitle={sheet.teleradPartnerCode}
+        onClose={onClose}
+        size="xl"
+        dismissible={false}
+        footer={
+          <>
+            <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">
+              Đóng
+            </button>
+            <button onClick={() => setPrinting(true)} className="px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-lg">
+              In thử
+            </button>
+            <button onClick={onEdit} className="px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              Sửa
+            </button>
+          </>
+        }
+      >
+        <FieldRow label="Cơ sở y tế">{sheet.teleradPartnerName || '—'}</FieldRow>
+        <FieldRow label="Mã CSYT">{sheet.teleradPartnerCode || '—'}</FieldRow>
+        <FieldRow label="Cỡ chữ kết quả (pt)">{sheet.resultFontSize ?? '—'}</FieldRow>
+        <FieldRow label="Giãn dòng kết quả">{sheet.resultLineSpacing ?? '—'}</FieldRow>
+        <FieldRow label="Trạng thái">{sheet.isActive ? 'Đang hoạt động' : 'Ngừng'}</FieldRow>
+        <div className="pt-3">
+          <div className="text-xs font-medium text-gray-500 pb-1">Mẫu phiếu</div>
+          {/* Render trong IFRAME (srcDoc) để CÁCH LY style. htmlContent là full HTML có
+              <style> với rule toàn cục (body{font-family:Times…}, *{…}); nhúng thẳng bằng
+              dangerouslySetInnerHTML thì <style> áp ra CẢ trang → đổi font/nền phía sau.
+              iframe là document riêng nên style không rò rỉ, đồng thời header/footer
+              position:fixed cũng được giữ trong iframe. sandbox="" chặn script trong mẫu. */}
+          <iframe
+            title="Xem trước mẫu phiếu"
+            srcDoc={sheet.htmlContent || ''}
+            sandbox=""
+            className="w-full h-[45vh] border border-gray-200 rounded-lg bg-white"
+          />
+        </div>
+      </Modal>
+
+      {/* In thử: render NGUYÊN template, các token nội dung ({{patientName}}…) giữ nguyên
+          để thấy tên trường. Chỉ fill 2 token style (resultFontSize/resultLineSpacing) vì
+          chúng nằm trong CSS — để literal sẽ làm hỏng style vùng kết quả. Không panel sửa. */}
+      {printing && (
+        <PrintModal
+          title="In thử — mẫu giữ nguyên tên trường ({{…}})"
+          templateHtml={sheet.htmlContent || ''}
+          data={{
+            resultFontSize: sheet.resultFontSize ?? 13,
+            resultLineSpacing: sheet.resultLineSpacing ?? 1.5,
+          }}
+          placeholder="Mẫu phiếu trống."
+          onClose={() => setPrinting(false)}
         />
-      </div>
-    </Modal>
+      )}
+    </>
   )
 }
 

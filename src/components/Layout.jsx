@@ -3,9 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMe } from '../api'
 import { PageHeaderProvider, usePageHeaderCtx } from '../context/PageHeaderContext'
-import { SelectedPartnerProvider } from '../context/SelectedPartnerContext'
 import { Icon } from '../design-system/icons'
-import PartnerSwitcher from './PartnerSwitcher'
 import ChangeOwnPasswordModal from './ChangeOwnPasswordModal'
 
 // Nav telerad (đơn schema, phẳng) — icon design-system thay emoji.
@@ -17,6 +15,13 @@ const NAV_ITEMS = [
   { to: '/result-sheet-templates', label: 'Cấu hình phiếu kết quả', icon: 'file-text' },
 ]
 const APP_TITLE = 'Telerad'
+
+// Sidebar: thu gọn/mở + kéo cạnh phải để chỉnh độ rộng; lưu localStorage để tái sử dụng.
+const SIDEBAR_MIN_W = 160
+const SIDEBAR_MAX_W = 480
+const SIDEBAR_DEFAULT_W = 224
+const SIDEBAR_WIDTH_LS_KEY = 'telerad_sidebar_width'
+const SIDEBAR_OPEN_LS_KEY = 'telerad_sidebar_open'
 
 /* Tiêu đề trang trên topbar — từ PageHeaderContext (mỗi trang đẩy lên qua
    <PageHeader title=.../>). Fallback "Medisync Telerad". */
@@ -55,8 +60,50 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showChangePassword, setShowChangePassword] = useState(false)
+
+  /* Sidebar mở/đóng — lưu localStorage */
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_OPEN_LS_KEY) !== 'false' } catch { return true }
+  })
+  const toggleSidebar = (open) => {
+    setSidebarOpen(open)
+    try { localStorage.setItem(SIDEBAR_OPEN_LS_KEY, open ? 'true' : 'false') } catch {}
+  }
+
+  /* Độ rộng sidebar — kéo cạnh phải để chỉnh, lưu localStorage */
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem(SIDEBAR_WIDTH_LS_KEY), 10)
+      if (!Number.isNaN(v)) return Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, v))
+    } catch {}
+    return SIDEBAR_DEFAULT_W
+  })
+  const [dragging, setDragging] = useState(false)
+
+  const startResize = (e) => {
+    e.preventDefault()
+    setDragging(true)
+    const startX = e.clientX
+    const startW = sidebarWidth
+    let finalW = startW
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = (ev) => {
+      finalW = Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, startW + (ev.clientX - startX)))
+      setSidebarWidth(finalW)
+    }
+    const onUp = () => {
+      setDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      try { localStorage.setItem(SIDEBAR_WIDTH_LS_KEY, String(finalW)) } catch {}
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     if (auth?.user?.fullName) return
@@ -76,15 +123,14 @@ export default function Layout({ children }) {
 
   return (
     <PageHeaderProvider moduleLabel="Telerad">
-    <SelectedPartnerProvider>
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-page)' }}>
 
-      {/* ── Sidebar (dark, design-system) ──────────────────────────────────── */}
+      {/* ── Sidebar (dark, design-system) — thu gọn/mở + kéo chỉnh độ rộng ──── */}
       <aside
-        className="flex-shrink-0 flex flex-col overflow-hidden transition-[width] duration-200"
-        style={{ width: sidebarOpen ? '224px' : '0px', backgroundColor: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}
+        className={`relative flex-shrink-0 flex flex-col overflow-hidden ${dragging ? '' : 'transition-[width] duration-200 ease-in-out'}`}
+        style={{ width: sidebarOpen ? sidebarWidth : 0, backgroundColor: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}
       >
-        <div className="w-56 flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-hidden" style={{ width: sidebarWidth }}>
           <div className="flex items-center gap-2.5 px-4 h-14 flex-shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary-600/40">
               <Icon name="heartbeat" size={16} className="text-white" strokeWidth={2.5} />
@@ -111,6 +157,17 @@ export default function Layout({ children }) {
             ))}
           </nav>
         </div>
+
+        {/* Thanh kéo chỉnh độ rộng (cạnh phải sidebar) */}
+        {sidebarOpen && (
+          <div
+            onMouseDown={startResize}
+            title="Kéo để chỉnh độ rộng menu"
+            className={`absolute top-0 right-0 h-full w-1.5 cursor-col-resize z-30 transition-colors ${
+              dragging ? 'bg-primary-500/50' : 'hover:bg-primary-500/30'
+            }`}
+          />
+        )}
       </aside>
 
       {/* ── Main ───────────────────────────────────────────────────────────── */}
@@ -118,7 +175,7 @@ export default function Layout({ children }) {
         <header className="bg-white border-b border-neutral-200 px-5 flex items-center justify-between shadow-xs flex-shrink-0" style={{ height: 'var(--header-h, 56px)' }}>
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => setSidebarOpen((v) => !v)}
+              onClick={() => toggleSidebar(!sidebarOpen)}
               className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors flex-shrink-0"
               title={sidebarOpen ? 'Ẩn menu' : 'Hiện menu'}
             >
@@ -128,7 +185,6 @@ export default function Layout({ children }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <PartnerSwitcher />
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
@@ -152,12 +208,11 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-5">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4">{children}</main>
       </div>
 
       {showChangePassword && <ChangeOwnPasswordModal onClose={() => setShowChangePassword(false)} />}
     </div>
-    </SelectedPartnerProvider>
     </PageHeaderProvider>
   )
 }
